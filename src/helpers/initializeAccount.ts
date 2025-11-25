@@ -22,3 +22,22 @@ export const initializeCallData = (
             initialGuardian
         ]
     });
+
+export const getDigestToInitCallData = (
+    key: IKeys.IKey,
+    keyDat: IKeys.IKeyReg,
+    sessionKey: IKeys.IKey,
+    sessionKeyData: IKeys.IKeyReg,
+    initialGuardian: Hex
+): Hex => 
+    encodeFunctionData({
+        abi: ABI_7702_ACCOUNT,
+        functionName: "getDigestToInit",
+        args: [
+            key,
+            keyDat,
+            sessionKey,
+            sessionKeyData,
+            initialGuardian
+        ]
+    });
