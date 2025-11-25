@@ -1,5 +1,5 @@
 import { encodeAbiParameters, Hex } from "viem";
-import { AccountTypes, DUMMY_SIGNATURE } from "@/data/accountConstants";
+import { AccountTypes, DUMMY_SIGNATURES } from "@/data/accountConstants";
 
 export type PubKey = {
     x: Hex;
@@ -79,5 +79,11 @@ export const encodeP256Signature = (params: P256Signature): Hex => {
     return encodeAbiParameters(OUTER_WRAP_ABI, [BigInt(params.keyType), inner]);
 };
 
-export const getStubSignature = (keyType: AccountTypes): Hex =>
-    encodeAbiParameters(STUB_SIGNATURE_ABI, [BigInt(keyType), DUMMY_SIGNATURE]);
+export const getStubEOASignature = (): Hex =>
+    encodeAbiParameters(STUB_SIGNATURE_ABI, [BigInt(AccountTypes.EOA), DUMMY_SIGNATURES[AccountTypes.EOA]]);
+
+export const getStubWebAuthnSignature = (): Hex => DUMMY_SIGNATURES[AccountTypes.WEBAUTHN];
+
+export const getStubP256Signature = (): Hex => DUMMY_SIGNATURES[AccountTypes.P256];
+
+export const getStubP256NonKeySignature = (): Hex => DUMMY_SIGNATURES[AccountTypes.P256_NONKEY];
