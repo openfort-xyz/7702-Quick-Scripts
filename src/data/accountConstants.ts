@@ -1,4 +1,4 @@
-import { Hex } from "viem";
+import { Hex, encodeAbiParameters } from "viem";
 
 export enum AccountTypes {
   EOA,
@@ -8,3 +8,4 @@ export enum AccountTypes {
 }
 
 export const DUMMY_SIGNATURE: Hex = "0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c" as Hex;
+
