@@ -1,4 +1,4 @@
-import { Hex, encodeAbiParameters } from "viem";
+import { Hex, toHex, pad } from "viem";
 
 export enum KeyType {
   EOA,
@@ -18,3 +18,10 @@ export const DUMMY_SIGNATURES: Record<KeyType, Hex> = {
   [KeyType.P256]: P256_DUMMY_SIGNATURE,
   [KeyType.P256_NONKEY]: P256_NONKEY_DUMMY_SIGNATURE,
 };
+
+// bytes32 internal constant mode_1 = bytes32(uint256(0x01000000000000000000) << (22 * 8));
+// 0x0100000000000000000000000000000000000000000000000000000000000000
+export const mode_1 = pad(toHex(0x01000000000000000000n << 176n), { size: 32 });
+// bytes32 internal constant mode_3 = bytes32(uint256(0x01000000000078210002) << (22 * 8));
+// 0x0100000000007821000200000000000000000000000000000000000000000000
+export const mode_3 = pad(toHex(0x01000000000078210002n << 176n), { size: 32 });;
