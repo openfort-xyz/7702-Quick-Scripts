@@ -3,7 +3,7 @@ import { exit } from "process";
 import { baseSepolia } from "viem/chains";
 import {walletsClient} from "./clients/walletClient";
 import { buildPublicClient } from "./clients/publicClient";
-import { getStubEOASignature, encodeEOASignature, encodeWebAuthnSignature, encodeP256Signature, WebAuthnSignature, P256Signature } from "./helpers/accountHelpers";
+import { encodeEOASignature, encodeWebAuthnSignature, encodeP256Signature, WebAuthnSignature, P256Signature } from "./helpers/signaturesHelpers";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -60,9 +60,6 @@ async function main() {
     };
     const wrappedP256NonKeySignature = encodeP256Signature(p256NonKeySignature);
     console.log("P256 Signature:", wrappedP256NonKeySignature);
-
-    // const stubEoaSignature = getStubEOASignature();
-    // console.log("Stub EOA Signature:", stubEoaSignature);
 }
 
 main().catch((error) => {
