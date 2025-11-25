@@ -31,6 +31,24 @@ export const addressBook = {
     address: "0x",
     note: "Used for gas sponsorship",
   },
+  erc20: {
+    name: "ERC20 Token",
+    version: "v1",
+    address: "0x",
+    note: "ERC20 token for transfers",
+  },
+  usdcBaseSepolia: {
+    name: "USDC Token",
+    version: "base-sepolia",
+    address: "0x",
+    note: "USDC stablecoin",
+  },
+  erc721: {
+    name: "NFT Token",
+    version: "v1",
+    address: "0x",
+    note: "NFT collection",
+  },
 } as const satisfies Record<string, AddressBook>;
 
 export type AddressKey = keyof typeof addressBook;
