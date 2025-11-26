@@ -4,9 +4,10 @@ import { ABI_7702_ACCOUNT, ABI_INITIALIZE_ACCOUNT } from "@/data/abis";
 import {
     encodeAbiParameters,
     encodeFunctionData,
+    hashDomain,
     keccak256,
     concatHex,
-    stringToHex,
+    getTypesForEIP712Domain,
     type Hex,
     type PublicClient,
 } from "viem";
@@ -111,12 +112,6 @@ const buildDomain = async (
     return { name, version, chainId, verifyingContract, salt };
 };
 
-const DOMAIN_TYPE_HASH = keccak256(
-    stringToHex(
-        "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
-    )
-);
-
 export const getDigestToInitOffchain = async (
     client: PublicClient,
     contractAddress: Hex,
@@ -127,6 +122,13 @@ export const getDigestToInitOffchain = async (
     initialGuardian: Hex
 ): Promise<Hex> => {
     const domain = await buildDomain(client, contractAddress);
+
+    const domainSimple = {
+        name: domain.name,
+        version: domain.version,
+        chainId: domain.chainId,
+        verifyingContract: domain.verifyingContract,
+    } as const;
 
     const keyEnc = encodeKey(key);
     const keyDataEnc = encodeKeyData(keyData);
@@ -147,24 +149,12 @@ export const getDigestToInitOffchain = async (
         )
     );
 
-    const domainSeparator = keccak256(
-        encodeAbiParameters(
-            [
-                { type: "bytes32" },
-                { type: "bytes32" },
-                { type: "bytes32" },
-                { type: "uint256" },
-                { type: "address" },
-            ],
-            [
-                DOMAIN_TYPE_HASH,
-                keccak256(stringToHex(domain.name)),
-                keccak256(stringToHex(domain.version)),
-                domain.chainId,
-                domain.verifyingContract,
-            ]
-        )
-    );
+    const domainSeparator = hashDomain({
+        domain: domainSimple as any,
+        types: {
+            EIP712Domain: getTypesForEIP712Domain({ domain: domainSimple }),
+        } as any,
+    });
 
     return keccak256(concatHex(["0x1901", domainSeparator, structHash]));
 };
