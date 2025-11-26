@@ -6,7 +6,6 @@ import { IKeys } from "../src/interfaces/iTypes";
 import { PubKey } from "../src/helpers/signaturesHelpers";
 import { KeyType } from "../src/data/accountConstants";
 import { assert } from "console";
-import { Hex } from "viem";
 
 const publicClientOptimism = buildPublicClient(optimism);
 const pubKey: PubKey = {
