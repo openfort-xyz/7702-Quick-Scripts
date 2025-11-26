@@ -18,6 +18,6 @@ export async function signAuthorization(
     return owner.signAuthorization({
         account: owner.account,
         contractAddress,
-        chainId: wallets.chain.id,
+        chainId: 0,
     });
 }

@@ -5,6 +5,7 @@ import { walletsClient } from "../src/clients/walletClient";
 import { buildPublicClient } from "../src/clients/publicClient";
 import { signAuthorization } from "../src/helpers/signAuthorization";
 import { checkAuthorization } from "../src/helpers/checkAuthorization";
+import { attachAuthorization } from "../src/helpers/attachAuthorization";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -28,21 +29,19 @@ async function main() {
     const authorized = await checkAuthorization(publicClient, owner.account.address);
     console.log("Is Authorized:", authorized);
 
-    if (authorized) {
-        console.log("Authorization already attached for owner:", owner.account.address);
-        return;
-    }
+    // if (authorized) {
+    //     console.log("Authorization already attached for owner:", owner.account.address);
+    //     return;
+    // }
 
     console.log("No authorization found, signing a new one...");
     const signedAuth = await signAuthorization(wallets);
     console.log("Signed Authorization:", signedAuth);
 
-    // const txHash = await owner.sendTransaction({
-    //     authorization: signedAuth,
-    // });
-    // console.log("Wait for the transaction to be mined...");
-    // await publicClient.waitForTransactionReceipt({ hash: txHash });
-    // console.log("Authorization transaction sent, tx hash:", txHash);
+    const txHash = await attachAuthorization(owner, signedAuth);
+    console.log("Wait for the transaction to be mined...");
+    await publicClient.waitForTransactionReceipt({ hash: txHash });
+    console.log("Authorization transaction sent, tx hash:", txHash);
 }
 
 main().catch((error) => {
