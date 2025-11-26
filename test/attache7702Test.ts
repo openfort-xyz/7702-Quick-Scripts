@@ -29,10 +29,10 @@ async function main() {
     const authorized = await checkAuthorization(publicClient, owner.account.address);
     console.log("Is Authorized:", authorized);
 
-    // if (authorized) {
-    //     console.log("Authorization already attached for owner:", owner.account.address);
-    //     return;
-    // }
+    if (authorized) {
+        console.log("Authorization already attached for owner:", owner.account.address);
+        return;
+    }
 
     console.log("No authorization found, signing a new one...");
     const signedAuth = await signAuthorization(wallets);
