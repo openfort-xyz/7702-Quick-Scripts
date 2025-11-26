@@ -22,7 +22,7 @@ export const addressBook = {
   opf7702ImplV1: {
     name: "Openfort 7702 Implementation",
     version: "v1",
-    address: "0x770200013027B0B3d0151BDeb26757132C95C875",
+    address: "0x770201093028dff97683df845D6cDF731D01Ff15",
     note: "Used for 7702 account deployments",
   },
   paymasterV9: {
