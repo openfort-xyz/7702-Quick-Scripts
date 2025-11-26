@@ -12,6 +12,9 @@ import {
     type PublicClient,
 } from "viem";
 
+// =============================================================
+//                 PUBLIC / EXTERNAL FUNCTIONS
+// =============================================================
 export const initializeCallData = (
     key: IKeys.IKey,
     keyDat: IKeys.IKeyReg,
@@ -33,6 +36,9 @@ export const initializeCallData = (
         ],
     });
 
+// =============================================================
+//                   PUBLIC / EXTERNAL GETTERS
+// =============================================================
 export const getDigestToInitCallData = (
     key: IKeys.IKey,
     keyDat: IKeys.IKeyReg,
@@ -46,6 +52,9 @@ export const getDigestToInitCallData = (
         args: [key, keyDat, sessionKey, sessionKeyData, initialGuardian],
     });
 
+// =============================================================
+//                       OFFCHAIN HELPERS
+// =============================================================
 const KEY_REG_TUPLE = ABI_INITIALIZE_ACCOUNT[0];
 const KEY_TUPLE = ABI_INITIALIZE_ACCOUNT[1];
 
@@ -70,7 +79,7 @@ const encodeKeyData = (keyData: IKeys.IKeyReg): Hex =>
         BigInt(keyData.ethLimit),
     ]);
 
-// Mirrors contract logic — sessionKeyData omits ethLimit.
+// NOTE: Matches your current schema (no `ethLimit` for sessionKeyData here).
 const encodeSessionKeyData = (sessionKeyData: IKeys.IKeyReg): Hex =>
     encodeAbiParameters(KEY_REG_TUPLE.components.slice(0, -1) as any, [
         Number(sessionKeyData.validUntil),
