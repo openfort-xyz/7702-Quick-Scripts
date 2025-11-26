@@ -21,7 +21,10 @@ export const DUMMY_SIGNATURES: Record<KeyType, Hex> = {
 
 // bytes32 internal constant mode_1 = bytes32(uint256(0x01000000000000000000) << (22 * 8));
 // 0x0100000000000000000000000000000000000000000000000000000000000000
-export const mode_1 = pad(toHex(0x01000000000000000000n << 176n), { size: 32 });
+export const mode_1 = pad(toHex(0x01000000000000000000n << 176n), { size: 32 }) as Hex;
 // bytes32 internal constant mode_3 = bytes32(uint256(0x01000000000078210002) << (22 * 8));
 // 0x0100000000007821000200000000000000000000000000000000000000000000
-export const mode_3 = pad(toHex(0x01000000000078210002n << 176n), { size: 32 });;
+export const mode_3 = pad(toHex(0x01000000000078210002n << 176n), { size: 32 }) as Hex;
+
+
+export const INIT_TYPEHASH = "0x82dc6262fca76342c646d126714aa4005dfcd866448478747905b2e7b9837183" as Hex;

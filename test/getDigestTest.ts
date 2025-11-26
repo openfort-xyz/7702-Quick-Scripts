@@ -1,10 +1,12 @@
 import { optimism } from "viem/chains";
-import {buildPublicClient} from "../src/clients/publicClient";
-import {getDigestToInitCallData} from "../src/helpers/initializeAccount";
-import {getAddress} from "../src/data/addressBook";
+import { buildPublicClient } from "../src/clients/publicClient";
+import { getDigestToInitCallData, getDigestToInitOffchain } from "../src/helpers/initializeAccount";
+import { getAddress } from "../src/data/addressBook";
 import { IKeys } from "../src/interfaces/iTypes";
-import {PubKey} from "../src/helpers/signaturesHelpers";
-import {KeyType} from "../src/data/accountConstants";
+import { PubKey } from "../src/helpers/signaturesHelpers";
+import { KeyType } from "../src/data/accountConstants";
+import { assert } from "console";
+import { Hex } from "viem";
 
 const publicClientOptimism = buildPublicClient(optimism);
 const pubKey: PubKey = {
@@ -15,7 +17,7 @@ const key: IKeys.IKey = ({
     pubKey,
     eoaAddress: "0x0000000000000000000000000000000000000000",
     keyType: KeyType.WEBAUTHN,
-}); 
+});
 
 
 const keyData: IKeys.IKeyReg = {
@@ -54,7 +56,7 @@ const sessionKeyData: IKeys.IKeyReg = {
 
 const initialGuardian = "0x0000000000000000000000000000000000000000000000000000000000000000";
 
-const diget = publicClientOptimism.call({
+const digestOnChainPromise = publicClientOptimism.call({
     to: getAddress("opf7702ImplV1"),
     data: getDigestToInitCallData(
         key,
@@ -65,6 +67,31 @@ const diget = publicClientOptimism.call({
     ),
 });
 
-diget.then((digest) => {
-    console.log("Digest to initialize account 7702 on Optimism:", digest);
+digestOnChainPromise.then((digestOnChain) => {
+    console.log("Digest to initialize account 7702 on Optimism:", digestOnChain);
+});
+
+const run = async () => {
+    const { data: digestOnChain } = await digestOnChainPromise;
+    const digestOffchain = await getDigestToInitOffchain(
+        publicClientOptimism,
+        getAddress("opf7702ImplV1"),
+        key,
+        keyData,
+        sessionKey,
+        sessionKeyData,
+        initialGuardian
+    );
+
+    console.log("Digest to initialize account 7702 offchain:", digestOffchain);
+
+    assert(
+        digestOnChain === digestOffchain,
+        "Digests do not match!"
+    );
+};
+
+run().catch((err) => {
+    console.error(err);
+    process.exit(1);
 });

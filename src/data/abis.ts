@@ -2774,3 +2774,30 @@ export const ABI_7702_ACCOUNT =
             "type": "receive"
         }
     ] as const;
+
+export const ABI_INITIALIZE_ACCOUNT =
+    [
+        {
+            type: "tuple",
+            components: [
+                { name: "validUntil", type: "uint48" },
+                { name: "validAfter", type: "uint48" },
+                { name: "limit", type: "uint48" },
+                { name: "whitelisting", type: "bool" },
+                { name: "contractAddress", type: "address" },
+                { name: "token", type: "address" },
+                { name: "tokenLimit", type: "uint256" },
+                { name: "allowedSelectors", type: "bytes4[]" },
+                { name: "ethLimit", type: "uint256" },
+            ],
+        },
+        {
+            type: "tuple",
+            components: [
+                { name: "x", type: "bytes32" },
+                { name: "y", type: "bytes32" },
+                { name: "eoaAddress", type: "address" },
+                { name: "keyType", type: "uint8" },
+            ],
+        },
+    ] as const;
