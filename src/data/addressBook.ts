@@ -40,7 +40,7 @@ export const addressBook = {
   usdcBaseSepolia: {
     name: "USDC Token",
     version: "base-sepolia",
-    address: "0x",
+    address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     note: "USDC stablecoin",
   },
   erc721: {
