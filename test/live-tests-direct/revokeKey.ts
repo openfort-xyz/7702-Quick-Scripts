@@ -3,7 +3,7 @@ import { exit } from "node:process";
 import { keys } from "./helpers/getKeys";
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../src/clients/walletClient";
-import { registerKeyCallData } from "../../src/helpers/keysHelper";
+import { revokeKeyCallData } from "../../src/helpers/keysHelper";
 import { buildPublicClient } from "../../src/clients/publicClient";
 
 const requireEnv = (name: string): string => {
@@ -32,13 +32,12 @@ async function main() {
     console.log("Owner balance:", await publicClient.getBalance({ address: owner.account.address }));
 
     // 2. Get keys
-    const { keySK_2, sessionKeyData_2 } = keys();
+    const { keySK_2 } = keys();
 
     // 3. Create calldata
     console.log("Creating calldata...");
-    const callData = registerKeyCallData(
-        keySK_2,
-        sessionKeyData_2
+    const callData = revokeKeyCallData(
+        keySK_2
     );
     console.log("Call Data:", callData);
 
