@@ -5,7 +5,7 @@ import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
 import { computeKeyIdEOA } from "../../../src/helpers/keys/keysHelper";
-import { proposeGuardianCallData } from "../../../src/helpers/account/socialRecovery";
+import { cancelGuardianProposalCallData } from "../../../src/helpers/account/socialRecovery";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -37,7 +37,7 @@ async function main() {
 
     // 3. Create calldata
     console.log("Creating calldata...");
-    const callData = proposeGuardianCallData(
+    const callData = cancelGuardianProposalCallData(
         computeKeyIdEOA("0x5D7b70802106c25F3363fC0CA3E799A4852221d3"),
     );
     console.log("Call Data:", callData);
