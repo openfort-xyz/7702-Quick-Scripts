@@ -1,7 +1,7 @@
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
-import { getKeyRegistrationInfo, getKeyById, isKeyActive, computeKeyIdP256 } from "../../../src/helpers/keysHelper";
+import { getKeyRegistrationInfo, getKeyById, isKeyActive, computeKeyIdP256 } from "../../../src/helpers/keys/keysHelper";
 import { exit } from "process";
 
 async function main() {
