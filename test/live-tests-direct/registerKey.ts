@@ -3,7 +3,7 @@ import { exit } from "node:process";
 import { keys } from "./helpers/getKeys";
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../src/clients/walletClient";
-import { registerKeyCallData } from "../../src/helpers/keysHelper";
+import { registerKeyCallData } from "../../src/helpers/keys/keysHelper";
 import { buildPublicClient } from "../../src/clients/publicClient";
 
 const requireEnv = (name: string): string => {

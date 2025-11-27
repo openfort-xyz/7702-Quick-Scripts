@@ -6,7 +6,7 @@ import { erc20Abi, encodeFunctionData, Hex } from "viem";
 import { getAddress } from "../../src/data/addressBook";
 import { walletsClient } from "../../src/clients/walletClient";
 import { buildPublicClient } from "../../src/clients/publicClient";
-import { executeCallCallData, buildExecuteCall, encodeExecutionData, type StrictCall } from "../../src/helpers/executeCall";
+import { executeCallCallData, buildExecuteCall, encodeExecutionData, type StrictCall } from "../../src/helpers/account/executeCall";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];

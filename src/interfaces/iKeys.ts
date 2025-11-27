@@ -1,6 +1,6 @@
 import { Hex } from "viem";
 import { KeyType } from "@/data/accountConstants";
-import { PubKey } from "@/helpers/signaturesHelpers";
+import { PubKey } from "@/helpers/keys/signaturesHelpers";
 
 export interface IKey {
     pubKey: PubKey;

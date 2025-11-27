@@ -3,7 +3,7 @@ import { exit } from "process";
 import { baseSepolia } from "viem/chains";
 import {walletsClient} from "./clients/walletClient";
 import { buildPublicClient } from "./clients/publicClient";
-import { encodeEOASignature, encodeWebAuthnSignature, encodeP256Signature, WebAuthnSignature, P256Signature } from "./helpers/signaturesHelpers";
+import { encodeEOASignature, encodeWebAuthnSignature, encodeP256Signature, WebAuthnSignature, P256Signature } from "./helpers/keys/signaturesHelpers";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
