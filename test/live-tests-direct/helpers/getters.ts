@@ -1,7 +1,7 @@
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
-import { getKeyRegistrationInfo, getKeyById, isKeyActive, computeKeyId } from "../../../src/helpers/keysHelper";
+import { getKeyRegistrationInfo, getKeyById, isKeyActive, computeKeyIdP256 } from "../../../src/helpers/keysHelper";
 import { exit } from "process";
 
 async function main() {
@@ -33,8 +33,8 @@ async function main() {
     console.log("Session Key (SK):", getKeyByIdSK);
 
     // Compute keyId using encodePacked to match Solidity's abi.encodePacked
-    const keyIdMK = await computeKeyId(getKeyByIdMK.pubKey.x, getKeyByIdMK.pubKey.y);
-    const keyIdSK = await computeKeyId(getKeyByIdSK.pubKey.x, getKeyByIdSK.pubKey.y);
+    const keyIdMK = await computeKeyIdP256(getKeyByIdMK.pubKey.x, getKeyByIdMK.pubKey.y);
+    const keyIdSK = await computeKeyIdP256(getKeyByIdSK.pubKey.x, getKeyByIdSK.pubKey.y);
 
     const isMKActive = await isKeyActive(accountAddress, publicClient, keyIdMK);
     const isSKActive = await isKeyActive(accountAddress, publicClient, keyIdSK);
