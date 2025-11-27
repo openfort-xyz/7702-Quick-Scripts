@@ -1,7 +1,7 @@
 import "dotenv/config";
+import { getAddress } from "../../data/addressBook";
 import type { Hex, SignAuthorizationReturnType } from "viem";
-import { getAddress } from "../data/addressBook";
-import type { WalletsClient } from "../clients/walletClient";
+import type { WalletsClient } from "../../clients/walletClient";
 
 export async function signAuthorization(
     wallets: WalletsClient,
