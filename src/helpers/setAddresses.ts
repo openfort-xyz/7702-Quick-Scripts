@@ -1,5 +1,5 @@
 import { ABI_7702_ACCOUNT } from "@/data/abis";
-import { encodeFunctionData, Hex } from "viem";
+import { encodeFunctionData, Hex, PublicClient } from "viem";
 
 // =============================================================
 //                 PUBLIC / EXTERNAL FUNCTIONS
@@ -29,22 +29,25 @@ export const setGasPolicyCallData = (gasPolicyAddress: Hex): Hex =>
 //                   PUBLIC / EXTERNAL GETTERS
 // =============================================================
 
-export const getEntryPointCallData = (): Hex =>
-    encodeFunctionData({
+export const getEntryPoint = async (address: Hex, pC: PublicClient) =>
+    await pC.readContract({
+        address,
         abi: ABI_7702_ACCOUNT,
         functionName: "entryPoint",
         args: [],
     });
 
-export const getWebAuthnVerifierCallData = (): Hex =>
-    encodeFunctionData({
+export const getWebAuthnVerifier = async (address: Hex, pC: PublicClient) =>
+    await pC.readContract({
+        address,
         abi: ABI_7702_ACCOUNT,
         functionName: "webAuthnVerifier",
         args: [],
     });
 
-export const getGasPolicyCallData = (): Hex =>
-    encodeFunctionData({
+export const getGasPolicy = async (address: Hex, pC: PublicClient) =>
+    await pC.readContract({
+        address,
         abi: ABI_7702_ACCOUNT,
         functionName: "gasPolicy",
         args: [],

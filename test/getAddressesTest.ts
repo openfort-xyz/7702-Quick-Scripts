@@ -1,33 +1,45 @@
-import { optimism } from "viem/chains";
-import { getAddress } from "../src/data/addressBook";
+import { exit } from "process";
+import { baseSepolia } from "viem/chains";
+import { walletsClient } from "../src/clients/walletClient";
 import { buildPublicClient } from "../src/clients/publicClient";
-import {getEntryPointCallData, getWebAuthnVerifierCallData, getGasPolicyCallData} from "../src/helpers/setAddresses";
+import {getEntryPoint, getWebAuthnVerifier, getGasPolicy} from "../src/helpers/setAddresses";
 
-const publicClientOptimism = buildPublicClient(optimism);
 
-const entryPointAddress = publicClientOptimism.call({
-    to: getAddress("opf7702ImplV1"),
-    data: getEntryPointCallData(),
-});
+async function main() {
+    const rpcUrl = process.env["BASE_SEPOLIA_RPC"];
+    if (!rpcUrl) {
+        throw new Error("BASE_SEPOLIA_RPC is not defined in environment variables");
+    }
 
-const webAuthnVerifierAddress = publicClientOptimism.call({
-    to: getAddress("opf7702ImplV1"),
-    data: getWebAuthnVerifierCallData(),
-});
+    const publicClient = buildPublicClient(baseSepolia, rpcUrl);
+    const wallets = walletsClient(baseSepolia, rpcUrl); 
 
-const gasPolicyAddress = publicClientOptimism.call({
-    to: getAddress("opf7702ImplV1"),
-    data: getGasPolicyCallData(),
-});
+    const entryPointAddress = getEntryPoint(wallets.walletClientOwner7702!.account!.address, publicClient);
 
-entryPointAddress.then((address) => {
-    console.log("Entry Point Address:", address);
-});
+    const webAuthnVerifierAddress = getWebAuthnVerifier(
+        wallets.walletClientOwner7702!.account!.address,
+        publicClient
+    );
 
-webAuthnVerifierAddress.then((address) => {
-    console.log("WebAuthn Verifier Address:", address);
-});
+    const gasPolicyAddress = getGasPolicy(
+        wallets.walletClientOwner7702!.account!.address,
+        publicClient
+    );
 
-gasPolicyAddress.then((address) => {
-    console.log("Gas Policy Address:", address);
+    entryPointAddress.then((address) => {
+        console.log("Entry Point Address:", address);
+    });
+
+    webAuthnVerifierAddress.then((address) => {
+        console.log("WebAuthn Verifier Address:", address);
+    });
+
+    gasPolicyAddress.then((address) => {
+        console.log("Gas Policy Address:", address);
+    });
+}
+
+main().catch((error) => {
+    console.error("Error during initialization:", error);
+    exit(1);
 });
