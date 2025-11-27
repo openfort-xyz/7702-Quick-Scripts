@@ -1,6 +1,6 @@
 import { IKeys } from "@/interfaces/iTypes";
 import { ABI_7702_ACCOUNT } from "@/data/abis";
-import { encodeFunctionData, Hex } from "viem";
+import { encodeFunctionData, Hex, PublicClient } from "viem";
 
 // =============================================================
 //                 PUBLIC / EXTERNAL FUNCTIONS
@@ -34,11 +34,12 @@ export const revokeAllKeysCallData = (): Hex =>
 //                   PUBLIC / EXTERNAL GETTERS
 // =============================================================
 
-export const getKeyRegistrationInfoCallData = (id: bigint): Hex => 
-    encodeFunctionData({
+export const getKeyRegistrationInfoCallData = async (address: Hex, pC: PublicClient, id: bigint) => 
+    await pC.readContract({
+        address,
         abi: ABI_7702_ACCOUNT,
         functionName: "getKeyRegistrationInfo",
-        args: [id]
+        args: [id],
     });
 
 export const getKeyByIdCallData = (id: bigint): Hex => 
