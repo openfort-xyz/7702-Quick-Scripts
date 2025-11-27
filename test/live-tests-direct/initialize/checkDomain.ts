@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { baseSepolia } from "viem/chains";
-import { getAddress } from "../../src/data/addressBook";
-import { walletsClient } from "../../src/clients/walletClient";
-import { buildPublicClient } from "../../src/clients/publicClient";
-import { ABI_7702_ACCOUNT } from "../../src/data/abis";
+import { getAddress } from "../../../src/data/addressBook";
+import { walletsClient } from "../../../src/clients/walletClient";
+import { buildPublicClient } from "../../../src/clients/publicClient";
+import { ABI_7702_ACCOUNT } from "../../../src/data/abis";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];

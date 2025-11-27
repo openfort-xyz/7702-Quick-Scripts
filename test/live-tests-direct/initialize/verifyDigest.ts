@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { baseSepolia } from "viem/chains";
-import { keys } from "./helpers/getKeys";
-import { getAddress } from "../../src/data/addressBook";
+import { keys } from "../helpers/getKeys";
+import { getAddress } from "../../../src/data/addressBook";
 import { keccak256 } from "viem";
-import { walletsClient } from "../../src/clients/walletClient";
-import { buildPublicClient } from "../../src/clients/publicClient";
+import { walletsClient } from "../../../src/clients/walletClient";
+import { buildPublicClient } from "../../../src/clients/publicClient";
 import { getDigestToInitOffchain, getDigestToInitCallData } from "../../src/helpers/initializeAccount";
 
 const requireEnv = (name: string): string => {

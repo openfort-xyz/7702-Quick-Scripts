@@ -1,10 +1,10 @@
 import "dotenv/config";
 import { keccak256 } from "viem";
 import { exit } from "node:process";
-import { keys } from "./helpers/getKeys";
+import { keys } from "../helpers/getKeys";
 import { baseSepolia } from "viem/chains";
-import { walletsClient } from "../../src/clients/walletClient";
-import { buildPublicClient } from "../../src/clients/publicClient";
+import { walletsClient } from "../../../src/clients/walletClient";
+import { buildPublicClient } from "../../../src/clients/publicClient";
 import { initializeCallData, getDigestToInitOffchain } from "../../src/helpers/initializeAccount";
 import { checkAuthorization } from "../../src/helpers/checkAuthorization";
 

@@ -1,9 +1,9 @@
 import "dotenv/config";
 import { exit } from "node:process";
-import { keys } from "./helpers/getKeys";
+import { keys } from "../helpers/getKeys";
 import { baseSepolia } from "viem/chains";
-import { walletsClient } from "../../src/clients/walletClient";
-import { buildPublicClient } from "../../src/clients/publicClient";
+import { walletsClient } from "../../../src/clients/walletClient";
+import { buildPublicClient } from "../../../src/clients/publicClient";
 import { revokeAllKeysCallData } from "../../src/helpers/keysHelper";
 
 const requireEnv = (name: string): string => {
