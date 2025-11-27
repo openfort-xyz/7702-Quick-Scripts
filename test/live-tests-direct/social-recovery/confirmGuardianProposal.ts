@@ -2,10 +2,12 @@ import "dotenv/config";
 import { exit } from "node:process";
 import { keys } from "../helpers/getKeys";
 import { baseSepolia } from "viem/chains";
+import { decodeErrorResult } from "viem";
 import { walletsClient } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
 import { computeKeyIdEOA } from "../../../src/helpers/keys/keysHelper";
 import { confirmGuardianProposalCallData } from "../../../src/helpers/account/socialRecovery";
+import { ABI_7702_ACCOUNT } from "../../../src/data/abis";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -43,7 +45,7 @@ async function main() {
     console.log("Call Data:", callData);
 
     // 4. Send transaction TO ITSELF (7702 pattern)
-    console.log("Sending key registration transaction to owner address...");
+    console.log("Sending transaction to owner address...");
     let txHash;
     try {
         txHash = await owner.sendTransaction({
@@ -53,8 +55,71 @@ async function main() {
             chain: baseSepolia
         });
         console.log("Transaction sent! Hash:", txHash);
-    } catch (error) {
-        console.error("Error sending transaction:", error);
+    } catch (error: any) {
+        console.error("❌ Transaction reverted");
+
+        // Try to extract error data from various possible locations
+        console.error("Extracting error data...");
+
+        // Check all possible error data locations
+        const errorData =
+            error.data?.data ||
+            error.cause?.data?.data ||
+            error.details?.data ||
+            error.walk?.((e: any) => e.data)?.data ||
+            null;
+
+        if (errorData && typeof errorData === 'string' && errorData.startsWith("0x")) {
+            try {
+                const decodedError = decodeErrorResult({
+                    abi: ABI_7702_ACCOUNT,
+                    data: errorData as `0x${string}`
+                });
+                console.error("✅ Error decoded successfully:");
+                console.error("   Error name:", decodedError.errorName);
+                if (decodedError.args && decodedError.args.length > 0) {
+                    console.error("   Error args:", decodedError.args);
+                }
+            } catch (decodeErr) {
+                console.error("Could not decode error. Raw data:", errorData);
+            }
+        } else {
+            // Try simulation as fallback
+            console.error("No direct error data, trying simulation...");
+            try {
+                await publicClient.call({
+                    to: owner.account.address,
+                    data: callData,
+                    account: owner.account.address,
+                });
+            } catch (simError: any) {
+                const simData =
+                    simError.data?.data ||
+                    simError.cause?.data?.data ||
+                    simError.details?.data ||
+                    simError.walk?.((e: any) => e.data)?.data ||
+                    null;
+
+                if (simData && typeof simData === 'string' && simData.startsWith("0x")) {
+                    try {
+                        const decodedError = decodeErrorResult({
+                            abi: ABI_7702_ACCOUNT,
+                            data: simData as `0x${string}`
+                        });
+                        console.error("✅ Error decoded successfully:");
+                        console.error("   Error name:", decodedError.errorName);
+                        if (decodedError.args && decodedError.args.length > 0) {
+                            console.error("   Error args:", decodedError.args);
+                        }
+                    } catch (decodeErr) {
+                        console.error("Could not decode error. Raw data:", simData);
+                    }
+                } else {
+                    console.error("No hex error data found. Error:", error.message);
+                }
+            }
+        }
+
         exit(1);
     }
 
