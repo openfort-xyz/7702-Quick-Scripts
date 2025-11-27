@@ -2,7 +2,7 @@ import { Call } from "viem";
 import { ABI_7702_ACCOUNT } from "@/data/abis";
 import { encodeAbiParameters, encodeFunctionData, Hex } from "viem";
 
-type StrictCall = {
+export type StrictCall = {
     to: Hex;
     value: bigint;
     data: Hex;

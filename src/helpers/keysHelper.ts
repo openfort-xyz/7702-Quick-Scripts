@@ -63,23 +63,12 @@ export const isKeyActive = async (address: Hex, pC: PublicClient, keyHash: Hex) 
 //                   INTERNAL HELPER FUNCTIONS
 // =============================================================
 
-/**
- * Computes the keyId for an EOA key.
- * Matches Solidity: keccak256(abi.encodePacked(eoa));
- * @param address The EOA address (20 bytes)
- * @returns The keyId hash
- */
+// keccak256(abi.encodePacked(eoa));
 export function computeKeyIdEOA(address: Hex): Hex {
     return keccak256(encodePacked(["address"], [address]));
 }
 
-/**
- * Computes the keyId for a WebAuthn / P-256 / P-256NONKEY key.
- * Matches Solidity: keccak256(abi.encodePacked(pubKey.x, pubKey.y));
- * @param pubKeyX The x coordinate of the public key (32 bytes)
- * @param pubKeyY The y coordinate of the public key (32 bytes)
- * @returns The keyId hash
- */
+
 export function computeKeyIdP256(pubKeyX: Hex, pubKeyY: Hex): Hex {
     return keccak256(encodePacked(["bytes32", "bytes32"], [pubKeyX, pubKeyY]));
 }

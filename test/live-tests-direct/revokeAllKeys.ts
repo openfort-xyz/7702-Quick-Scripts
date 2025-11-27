@@ -36,21 +36,21 @@ async function main() {
     const callData = revokeAllKeysCallData();
     console.log("Call Data:", callData);
 
-    // // 3. Send transaction TO ITSELF (7702 pattern)
-    // console.log("Sending initialization transaction to owner address...");
-    // const txHash = await owner.sendTransaction({
-    //     account: owner.account,
-    //     to: owner.account.address,  // ✅ Send to self (7702 pattern)
-    //     data: initCallData,
-    //     chain: null,
-    // });
-    // console.log("Transaction sent! Hash:", txHash);
+    // 3. Send transaction TO ITSELF (7702 pattern)
+    console.log("Sending initialization transaction to owner address...");
+    const txHash = await owner.sendTransaction({
+        account: owner.account,
+        to: owner.account.address, 
+        data: callData,
+        chain: baseSepolia 
+    });
+    console.log("Transaction sent! Hash:", txHash);
 
-    // // 4. Wait and verify
-    // console.log("Waiting for transaction to be mined...");
-    // const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
-    // console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
-    // console.log("Initialization successful! TX Hash:", txHash);
+    // 4. Wait and verify
+    console.log("Waiting for transaction to be mined...");
+    const receipt = await publicClient.waitForTransactionReceipt({ hash: txHash });
+    console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
+    console.log("Initialization successful! TX Hash:", txHash);
 }
 
 main().catch((error) => {

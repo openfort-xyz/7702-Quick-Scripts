@@ -14,8 +14,8 @@ const pubKeySK: PubKey = {
 };
 
 const pubKeySK_2: PubKey = {
-    x: "0xa30c88256fd263a8ec589f8197eaa467cbbd860acd7fe8c13d69c4d9c2af095d",
-    y: "0xbf2bffb0de07e732704ab92f9e1181377468a3beb4d6000b8876b0c81cfa9991"
+    x: "0xb4a7e6d1234567890abcdef1234567890abcdef1234567890abcdef123456789",
+    y: "0xc778a9b2345678901bcdef23456789012cdef3456789012def45678901234567"
 };
 
 const keyMK: IKeys.IKey = ({
