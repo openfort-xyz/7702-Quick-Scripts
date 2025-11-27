@@ -1,5 +1,6 @@
 import { IKeys } from "@/interfaces/iTypes";
 import { ABI_7702_ACCOUNT } from "@/data/abis";
+import { keccak256, encodePacked } from "viem";
 import { encodeFunctionData, Hex, PublicClient } from "viem";
 
 // =============================================================
@@ -57,3 +58,15 @@ export const isKeyActive = async (address: Hex, pC: PublicClient, keyHash: Hex) 
         functionName: "isKeyActive",
         args: [keyHash]
     });
+
+// =============================================================
+//                   INTERNAL HELPER FUNCTIONS
+// =============================================================
+
+/**
+ * Computes the keyId for a WebAuthn / P-256 / P-256NONKEY key.
+ * Matches Solidity: keccak256(abi.encodePacked(pubKey.x, pubKey.y))
+ */
+export async function computeKeyId(pubKeyX: Hex, pubKeyY: Hex): Promise<Hex> {
+    return keccak256(encodePacked(["bytes32", "bytes32"], [pubKeyX, pubKeyY]));
+}

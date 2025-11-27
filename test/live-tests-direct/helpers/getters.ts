@@ -1,17 +1,8 @@
-import { keccak256, encodePacked } from "viem";
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
-import { getKeyRegistrationInfo, getKeyById, isKeyActive } from "../../../src/helpers/keysHelper";
+import { getKeyRegistrationInfo, getKeyById, isKeyActive, computeKeyId } from "../../../src/helpers/keysHelper";
 import { exit } from "process";
-
-/**
- * Computes the keyId for a WebAuthn / P-256 / P-256NONKEY key.
- * Matches Solidity: keccak256(abi.encodePacked(pubKey.x, pubKey.y))
- */
-function computeKeyId(pubKeyX: `0x${string}`, pubKeyY: `0x${string}`): `0x${string}` {
-    return keccak256(encodePacked(["bytes32", "bytes32"], [pubKeyX, pubKeyY]));
-}
 
 async function main() {
     const rpcUrl = process.env["BASE_SEPOLIA_RPC"];
@@ -42,8 +33,8 @@ async function main() {
     console.log("Session Key (SK):", getKeyByIdSK);
 
     // Compute keyId using encodePacked to match Solidity's abi.encodePacked
-    const keyIdMK = computeKeyId(getKeyByIdMK.pubKey.x, getKeyByIdMK.pubKey.y);
-    const keyIdSK = computeKeyId(getKeyByIdSK.pubKey.x, getKeyByIdSK.pubKey.y);
+    const keyIdMK = await computeKeyId(getKeyByIdMK.pubKey.x, getKeyByIdMK.pubKey.y);
+    const keyIdSK = await computeKeyId(getKeyByIdSK.pubKey.x, getKeyByIdSK.pubKey.y);
 
     const isMKActive = await isKeyActive(accountAddress, publicClient, keyIdMK);
     const isSKActive = await isKeyActive(accountAddress, publicClient, keyIdSK);
