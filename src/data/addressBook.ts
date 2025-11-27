@@ -22,7 +22,7 @@ export const addressBook = {
   opf7702ImplV1: {
     name: "Openfort 7702 Implementation",
     version: "v1",
-    address: "0x770200013027B0B3d0151BDeb26757132C95C875",
+    address: "0x770201093028dff97683df845D6cDF731D01Ff15",
     note: "Used for 7702 account deployments",
   },
   paymasterV9: {
@@ -30,6 +30,24 @@ export const addressBook = {
     version: "v3Epv9",
     address: "0x",
     note: "Used for gas sponsorship",
+  },
+  erc20: {
+    name: "ERC20 Token",
+    version: "v1",
+    address: "0x",
+    note: "ERC20 token for transfers",
+  },
+  usdcBaseSepolia: {
+    name: "USDC Token",
+    version: "base-sepolia",
+    address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    note: "USDC stablecoin",
+  },
+  erc721: {
+    name: "NFT Token",
+    version: "v1",
+    address: "0x",
+    note: "NFT collection",
   },
 } as const satisfies Record<string, AddressBook>;
 
