@@ -58,39 +58,74 @@ export const getDigestToInitCallData = (
 const KEY_REG_TUPLE = ABI_INITIALIZE_ACCOUNT[0];
 const KEY_TUPLE = ABI_INITIALIZE_ACCOUNT[1];
 
+// Encode exactly as the contract does: abi.encode(_key.pubKey.x, _key.pubKey.y, _key.eoaAddress, _key.keyType)
 const encodeKey = (key: IKeys.IKey): Hex =>
-    encodeAbiParameters(KEY_TUPLE.components as any, [
-        key.pubKey.x,
-        key.pubKey.y,
-        key.eoaAddress,
-        key.keyType,
-    ]);
+    encodeAbiParameters(
+        [
+            { type: "bytes32" },
+            { type: "bytes32" },
+            { type: "address" },
+            { type: "uint8" },
+        ],
+        [
+            key.pubKey.x,
+            key.pubKey.y,
+            key.eoaAddress,
+            key.keyType,
+        ]
+    );
 
+// Encode exactly as the contract does for keyData (includes ethLimit)
 const encodeKeyData = (keyData: IKeys.IKeyReg): Hex =>
-    encodeAbiParameters(KEY_REG_TUPLE.components as any, [
-        Number(keyData.validUntil),
-        Number(keyData.validAfter),
-        Number(keyData.limit),
-        keyData.whitelisting,
-        keyData.contractAddress,
-        keyData.spendTokenInfo.token,
-        BigInt(keyData.spendTokenInfo.limit),
-        keyData.allowedSelectors,
-        BigInt(keyData.ethLimit),
-    ]);
+    encodeAbiParameters(
+        [
+            { type: "uint48" },
+            { type: "uint48" },
+            { type: "uint48" },
+            { type: "bool" },
+            { type: "address" },
+            { type: "address" },
+            { type: "uint256" },
+            { type: "bytes4[]" },
+            { type: "uint256" },
+        ],
+        [
+            Number(keyData.validUntil),
+            Number(keyData.validAfter),
+            Number(keyData.limit),
+            keyData.whitelisting,
+            keyData.contractAddress,
+            keyData.spendTokenInfo.token,
+            BigInt(keyData.spendTokenInfo.limit),
+            keyData.allowedSelectors,
+            BigInt(keyData.ethLimit),
+        ]
+    );
 
-// NOTE: Matches your current schema (no `ethLimit` for sessionKeyData here).
+// Encode exactly as the contract does for sessionKeyData (NO ethLimit)
 const encodeSessionKeyData = (sessionKeyData: IKeys.IKeyReg): Hex =>
-    encodeAbiParameters(KEY_REG_TUPLE.components.slice(0, -1) as any, [
-        Number(sessionKeyData.validUntil),
-        Number(sessionKeyData.validAfter),
-        Number(sessionKeyData.limit),
-        sessionKeyData.whitelisting,
-        sessionKeyData.contractAddress,
-        sessionKeyData.spendTokenInfo.token,
-        BigInt(sessionKeyData.spendTokenInfo.limit),
-        sessionKeyData.allowedSelectors,
-    ]);
+    encodeAbiParameters(
+        [
+            { type: "uint48" },
+            { type: "uint48" },
+            { type: "uint48" },
+            { type: "bool" },
+            { type: "address" },
+            { type: "address" },
+            { type: "uint256" },
+            { type: "bytes4[]" },
+        ],
+        [
+            Number(sessionKeyData.validUntil),
+            Number(sessionKeyData.validAfter),
+            Number(sessionKeyData.limit),
+            sessionKeyData.whitelisting,
+            sessionKeyData.contractAddress,
+            sessionKeyData.spendTokenInfo.token,
+            BigInt(sessionKeyData.spendTokenInfo.limit),
+            sessionKeyData.allowedSelectors,
+        ]
+    );
 
 const buildDomain = async (
     client: PublicClient,

@@ -1,9 +1,8 @@
 import "dotenv/config";
-import { keccak256, recoverMessageAddress } from "viem";
+import { keccak256 } from "viem";
 import { exit } from "node:process";
 import { keys } from "./helpers/getKeys";
 import { baseSepolia } from "viem/chains";
-import { getAddress } from "../../src/data/addressBook";
 import { walletsClient } from "../../src/clients/walletClient";
 import { buildPublicClient } from "../../src/clients/publicClient";
 import { initializeCallData, getDigestToInitOffchain } from "../../src/helpers/initializeAccount";
@@ -59,11 +58,11 @@ async function main() {
     const initialGuardian = keccak256(wallets.walletClientPaymasterOwner!.account!.address);
     console.log("Initial guardian:", initialGuardian);
 
-    // 4. Compute digest
+    // 4. Compute digest (use account address for EIP-712 domain, not implementation!)
     console.log("Computing initialization digest...");
     const digest = await getDigestToInitOffchain(
         publicClient,
-        getAddress("opf7702ImplV1"),
+        owner.account.address,  // CRITICAL: Use account address, not implementation address!
         keyMK,
         keyData,
         keySK,
@@ -72,22 +71,25 @@ async function main() {
     );
     console.log("Digest:", digest);
 
-    // 5. Sign digest
+    // 5. Sign digest (raw signature without Ethereum signed message prefix)
     console.log("\n=== Signing Digest ===");
     console.log("Digest to sign:", digest);
     console.log("Signer address:", owner.account.address);
 
-    const signature = await owner.signMessage({
-        account: owner.account,
-        message: { raw: digest }
-    });
+    // CRITICAL: Sign the hash directly without the Ethereum signed message prefix
+    // The contract uses ECDSA.recover which expects a raw signature
+    if (!owner.account.sign) {
+        throw new Error("Account does not support signing");
+    }
+    const signature = await owner.account.sign({ hash: digest });
     console.log("Signature:", signature);
 
     // Verify signature locally
     console.log("\n=== Verifying Signature Locally ===");
     try {
-        const recovered = await recoverMessageAddress({
-            message: { raw: digest },
+        const { recoverAddress } = await import("viem");
+        const recovered = await recoverAddress({
+            hash: digest,
             signature: signature,
         });
         console.log("Recovered address:", recovered);

@@ -29,9 +29,10 @@ async function main() {
     const initialGuardian = keccak256(wallets.walletClientPaymasterOwner!.account!.address);
 
     console.log("=== Computing Digest Offchain ===");
+    console.log("Using account address for EIP-712 domain:", owner.account.address);
     const digestOffchain = await getDigestToInitOffchain(
         publicClient,
-        getAddress("opf7702ImplV1"),
+        owner.account.address,  // Use account address, not implementation address!
         keyMK,
         keyData,
         keySK,
