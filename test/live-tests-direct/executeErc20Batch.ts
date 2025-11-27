@@ -6,7 +6,7 @@ import { erc20Abi, encodeFunctionData, Hex } from "viem";
 import { getAddress } from "../../src/data/addressBook";
 import { walletsClient } from "../../src/clients/walletClient";
 import { buildPublicClient } from "../../src/clients/publicClient";
-import { executeCallCallData, buildExecuteCall, encodeExecutionData, type StrictCall } from "../../src/helpers/executeCall";
+import { executeCallCallData, buildExecuteBatchCall, encodeExecutionData, type StrictCall } from "../../src/helpers/executeCall";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -52,19 +52,28 @@ async function main() {
     console.log("💰Owner USDC balance before:", balanceBeforeOwner);
     console.log("💰Receiver USDC balance before:", balanceBeforeReceiver);
 
+    const erc20Address = getAddress("usdcBaseSepolia");
+    const addresses: Hex[] = [erc20Address, erc20Address];
+
+    const values: bigint[] = [BigInt(0), BigInt(0)];
+
+    const transfer: Hex = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [
+            reciverAddress,
+            BigInt(1000_0), // 0.01 USDC (6 decimals)
+        ],
+    })
+    const datas: Hex[] = [transfer, transfer];
+    
     // 2. Create Call
-    const call: StrictCall = buildExecuteCall(
-        getAddress("usdcBaseSepolia"),
-        BigInt(0),
-        encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "transfer",
-            args: [
-                reciverAddress,
-                BigInt(1000_0), // 0.01 USDC (6 decimals)
-            ],
-        })
+    const call: StrictCall[] = buildExecuteBatchCall(
+        addresses,
+        values,
+        datas
     );
+
     console.log("Execute Call:", call);
 
     // 3. Create calldata
