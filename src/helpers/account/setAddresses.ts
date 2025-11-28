@@ -28,7 +28,6 @@ export const setGasPolicyCallData = (gasPolicyAddress: Hex): Hex =>
 // =============================================================
 //                   PUBLIC / EXTERNAL GETTERS
 // =============================================================
-
 export const getEntryPoint = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
