@@ -1,14 +1,14 @@
 import "dotenv/config";
 import { exit } from "node:process";
-import { baseSepolia } from "viem/chains";
+import { optimismSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
 import { erc20Abi, encodeFunctionData, Hex } from "viem";
 import { getAddress } from "../../../src/data/addressBook";
 import { mode_1 } from "../../../src/data/accountConstants";
-import { walletsClient, OWNER_7702_PRIVATE_KEY } from "../../../src/clients/walletClient";
 import { buildPublicClient } from "../../../src/clients/publicClient";
 import { buildBundlerClient } from "../../../src/clients/bundlerClient";
 import { openfortAccount } from "../../../src/clients/openfortSmartAccount";
+import { walletsClient, OWNER_7702_PRIVATE_KEY } from "../../../src/clients/walletClient";
 import { executeCallCallData, buildExecuteBatchCall, encodeExecutionData, type StrictCall } from "../../../src/helpers/account/executeCall";
 
 const requireEnv = (name: string): string => {
@@ -23,10 +23,10 @@ const reciverAddress: Hex = "0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1";
 
 async function main() {
     // 1. Setup clients
-    const rpcUrl = requireEnv("BASE_SEPOLIA_RPC");
-    const publicClient = buildPublicClient(baseSepolia, rpcUrl);
-    const wallets = walletsClient(baseSepolia, rpcUrl);
-    const bundlerClient = buildBundlerClient(baseSepolia);
+    const rpcUrl = requireEnv("OP_SEPOLIA_RPC");
+    const publicClient = buildPublicClient(optimismSepolia, rpcUrl);
+    const wallets = walletsClient(optimismSepolia, rpcUrl);
+    const bundlerClient = buildBundlerClient(optimismSepolia);
     const ownerSA = privateKeyToAccount(OWNER_7702_PRIVATE_KEY as Hex);
     const smartAccount = await openfortAccount(bundlerClient, ownerSA);
 
@@ -38,7 +38,7 @@ async function main() {
         throw new Error("walletClientOwner7702 is missing an account");
     }
 
-    console.log("SA address:", smartAccount.getAddress())
+    console.log("SA address:", await smartAccount.getAddress())
 
     console.log("Owner address:", owner.account.address);
     console.log("Owner balance:", await publicClient.getBalance({ address: owner.account.address }));
