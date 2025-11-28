@@ -42,28 +42,12 @@ async function main() {
     const callDataDepositTo = depositToCallData(owner.account!.address);
     const callDataAddStake = addStakeCallData(860);
 
-    const erc20Address = getAddress("entryPointV9");
-    const addresses: Hex[] = [erc20Address, erc20Address];
-    const values: bigint[] = [BigInt(500000000000000), BigInt(500000000000000)];
-    const datas: Hex[] = [callDataDepositTo, callDataAddStake];
-
-    const call: StrictCall[] = buildExecuteBatchCall(
-        addresses,
-        values,
-        datas
-    );
-
-    const callData = executeCallCallData(
-        mode_1,
-        encodeExecutionData(call)
-    );
-    console.log("Call Data:", callData);
-
     console.log("Sending key registration transaction to owner address...");
     const txHash = await owner.sendTransaction({
         account: owner.account,
-        to: owner.account.address,
-        data: callData,
+        to: getAddress("entryPointV9"),
+        data: callDataDepositTo,
+        value: BigInt(500),
         chain: optimismSepolia
     });
     console.log("Transaction sent! Hash:", txHash);
