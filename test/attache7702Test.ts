@@ -3,9 +3,9 @@ import { exit } from "node:process";
 import { baseSepolia } from "viem/chains";
 import { walletsClient } from "../src/clients/walletClient";
 import { buildPublicClient } from "../src/clients/publicClient";
-import { signAuthorization } from "../src/helpers/signAuthorization";
-import { checkAuthorization } from "../src/helpers/checkAuthorization";
-import { attachAuthorization } from "../src/helpers/attachAuthorization";
+import { signAuthorization } from "../src/helpers/authorization/signAuthorization";
+import { checkAuthorization } from "../src/helpers/authorization/checkAuthorization";
+import { attachAuthorization } from "../src/helpers/authorization/attachAuthorization";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];

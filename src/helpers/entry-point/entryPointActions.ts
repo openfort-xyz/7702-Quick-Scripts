@@ -1,6 +1,6 @@
 import { getAddress } from "@/data/addressBook";
 import { encodeFunctionData, Hex, PublicClient } from "viem";
-import { entryPoint08Abi } from "viem/_types/account-abstraction";
+import { entryPoint08Abi } from "viem/account-abstraction";
 
 // =============================================================
 //                 PUBLIC / EXTERNAL FUNCTIONS
