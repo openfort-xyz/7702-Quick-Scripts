@@ -7,7 +7,7 @@ type MaybeAccount = ReturnType<typeof privateKeyToAccount> | undefined;
 
 const env = process.env as Record<string, string | undefined>;
 
-const OWNER_7702_PRIVATE_KEY =
+export const OWNER_7702_PRIVATE_KEY =
     env["7702_OWNER_PRIVATE_KEY"] ?? env.OWNER_7702_PRIVATE_KEY;
 const PAYMASTER_OWNER_PRIVATE_KEY = env.PAYMASTER_OWNER_PRIVATE_KEY;
 const PAYMASTER_ADMIN_PRIVATE_KEY = env.PAYMASTER_ADMIN_PRIVATE_KEY;
