@@ -3,10 +3,10 @@ import { getAddress } from "@/data/addressBook";
 import { mode_1 } from "@/data/accountConstants";
 import { buildBundlerClient } from "@/clients/bundlerClient";
 import { getStubEOASignature } from "@/helpers/keys/signaturesHelpers";
-import { toSmartAccount, entryPoint08Abi, toPackedUserOperation, ToSmartAccountReturnType, } from "viem/account-abstraction"
-import { Call, encodeFunctionData, encodeAbiParameters, decodeFunctionData, Hex, PrivateKeyAccount, TypedDataDefinition, TypedData, } from "viem";
+import { toSmartAccount, entryPoint08Abi, toPackedUserOperation } from "viem/account-abstraction"
+import { Call, encodeFunctionData, encodeAbiParameters, decodeFunctionData, Hex, PrivateKeyAccount, TypedDataDefinition, TypedData } from "viem";
 
-export async function openfortAccount(bundlerClient: ReturnType<typeof buildBundlerClient>, wallet: PrivateKeyAccount): Promise<ToSmartAccountReturnType> {
+export async function openfortAccount(bundlerClient: ReturnType<typeof buildBundlerClient>, wallet: PrivateKeyAccount) {
     const callType = {
         components: [
             { name: 'target', type: 'address' },
