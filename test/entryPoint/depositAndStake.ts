@@ -42,8 +42,8 @@ async function main() {
     const callDataDepositTo = depositToCallData(owner.account!.address);
     const callDataAddStake = addStakeCallData(860);
 
-    const erc20Address = getAddress("entryPointV9");
-    const addresses: Hex[] = [erc20Address, erc20Address];
+    const entryPointaddress = getAddress("entryPointV9");
+    const addresses: Hex[] = [entryPointaddress, entryPointaddress];
     const values: bigint[] = [BigInt(500000000000000), BigInt(500000000000000)];
     const datas: Hex[] = [callDataDepositTo, callDataAddStake];
 

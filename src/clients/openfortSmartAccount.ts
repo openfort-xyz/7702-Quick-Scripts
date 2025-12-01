@@ -1,12 +1,10 @@
 import { ABI_7702_ACCOUNT } from "@/data/abis";
-import { getAddress } from "@/data/addressBook";
 import { mode_1 } from "@/data/accountConstants";
-import { buildBundlerClient } from "@/clients/bundlerClient";
 import { getStubEOASignature } from "@/helpers/keys/signaturesHelpers";
 import { toSmartAccount, entryPoint08Abi, toPackedUserOperation } from "viem/account-abstraction"
-import { Call, encodeFunctionData, encodeAbiParameters, decodeFunctionData, Hex, PrivateKeyAccount, TypedDataDefinition, TypedData } from "viem";
+import { Call, encodeFunctionData, encodeAbiParameters, decodeFunctionData, Hex, PrivateKeyAccount, TypedDataDefinition, TypedData, PublicClient } from "viem";
 
-export async function openfortAccount(bundlerClient: ReturnType<typeof buildBundlerClient>, wallet: PrivateKeyAccount) {
+export async function openfortAccount(publicClient: PublicClient, wallet: PrivateKeyAccount) {
     const callType = {
         components: [
             { name: 'target', type: 'address' },
@@ -17,10 +15,10 @@ export async function openfortAccount(bundlerClient: ReturnType<typeof buildBund
     };
 
     return await toSmartAccount({
-        client: bundlerClient,
+        client: publicClient,
         entryPoint: {
             abi: entryPoint08Abi,
-            address: getAddress("entryPointV9"),
+            address: "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709",
             version: "0.8" // using 0.8 temporarily, until viem supports 0.9
         },
         async encodeCalls(calls: readonly Call[]) {
@@ -60,11 +58,11 @@ export async function openfortAccount(bundlerClient: ReturnType<typeof buildBund
         },
         authorization: {
             account: wallet,
-            address: getAddress("opf7702ImplV1")
+            address: "0x770201093028dff97683df845D6cDF731D01Ff15"
         },
         async getNonce() {
-            return bundlerClient.readContract({
-                address: getAddress("entryPointV9"),
+            return publicClient.readContract({
+                address: "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709",
                 abi: entryPoint08Abi,
                 functionName: "getNonce",
                 args: [wallet.address, 1n]
@@ -94,13 +92,13 @@ export async function openfortAccount(bundlerClient: ReturnType<typeof buildBund
             })
         },
         async signUserOperation(parameters) {
-            const { chainId = bundlerClient.chain.id, authorization, ...userOperation } = parameters
+            const { chainId = publicClient.chain.id, authorization, ...userOperation } = parameters
             const packedUserOp = toPackedUserOperation({ ...userOperation, sender: wallet.address });
-            const userOpHash = await bundlerClient.request({
+            const userOpHash = await publicClient.request({
                 method: "eth_call",
                 params: [
                     {
-                        to: getAddress("entryPointV9"),
+                        to: "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709",
                         data: encodeFunctionData({
                             abi: entryPoint08Abi,
                             functionName: "getUserOpHash",
@@ -110,7 +108,7 @@ export async function openfortAccount(bundlerClient: ReturnType<typeof buildBund
                     "latest",
                     authorization ? {
                         [wallet.address]: {
-                            code: `0xef0100${getAddress("opf7702ImplV1").toLowerCase().substring(2)}`
+                            code: `0xef0100${"0x770201093028dff97683df845D6cDF731D01Ff15".toLowerCase().substring(2)}`
                         }
                     } : {}
                 ]

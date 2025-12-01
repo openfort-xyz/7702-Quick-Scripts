@@ -3,13 +3,17 @@ import { exit } from "node:process";
 import { keys } from "../helpers/getKeys";
 import { optimismSepolia } from "viem/chains";
 import { privateKeyToAccount } from "viem/accounts";
-import { keccak256, Hex, SignAuthorizationReturnType } from "viem";
+import { getAddress } from "../../../src/data/addressBook";
 import { buildPublicClient } from "../../../src/clients/publicClient";
 import { buildBundlerClient } from "../../../src/clients/bundlerClient";
 import { openfortAccount } from "../../../src/clients/openfortSmartAccount";
+import { keccak256, Hex, SignAuthorizationReturnType, parseUnits, encodeFunctionData, encodeAbiParameters } from "viem";
 import { walletsClient, OWNER_7702_PRIVATE_KEY } from "../../../src/clients/walletClient";
+import { signAuthorization } from "../../../src/helpers/authorization/signAuthorization";
 import { checkAuthorization } from "../../../src/helpers/authorization/checkAuthorization";
 import { initializeCallData, getDigestToInitOffchain } from "../../../src/helpers/account/initializeAccount";
+import { ABI_7702_ACCOUNT } from "../../../src/data/abis";
+import { mode_1 } from "../../../src/data/accountConstants";
 
 const requireEnv = (name: string): string => {
     const value = process.env[name];
@@ -26,7 +30,7 @@ async function main() {
     const wallets = walletsClient(optimismSepolia, rpcUrl);
     const bundlerClient = buildBundlerClient(optimismSepolia);
     const ownerSA = privateKeyToAccount(OWNER_7702_PRIVATE_KEY as Hex);
-    const smartAccount = await openfortAccount(bundlerClient, ownerSA);
+    const smartAccount = await openfortAccount(publicClient, ownerSA);
 
     const owner = wallets.walletClientOwner7702;
     if (!owner) {
@@ -41,11 +45,12 @@ async function main() {
     console.log("Owner address:", owner.account.address);
     console.log("Owner balance:", await publicClient.getBalance({ address: owner.account.address }));
 
-    const senderCode = await bundlerClient.getCode({
+    const senderCode = await publicClient.getCode({
         address: ownerSA.address
     });
 
-    const delegateAddress = openfortAccount.authorization?.address;
+    const delegateAddress = smartAccount.authorization.address;
+    console.log("delegateAddress", delegateAddress)
     let authorization: SignAuthorizationReturnType | undefined;
     if(delegateAddress && senderCode !== `0xef0100${delegateAddress.toLowerCase().substring(2)}`) {
         authorization = await bundlerClient.signAuthorization({
@@ -54,21 +59,20 @@ async function main() {
         })
     }
 
-    console.log("delegateAddress:", delegateAddress)
-    console.log("authorization:", authorization)
+    const hash = await bundlerClient.sendUserOperation({
+        account: smartAccount,
+        authorization,
+        factory: authorization ? "0x7702" : undefined,
+        factoryData: authorization ? "0x" : undefined,
+        calls: [
+            {
+                to: "0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1",
+                value: parseUnits('0.00000001', 18)
+            }
+        ],
+    });
 
-    // CRITICAL: Verify authorization is attached
-    // console.log("\n=== Checking Authorization ===");
-    // const authorized = await checkAuthorization(publicClient, owner.account.address);
-    // console.log("Authorization status:", authorized);
-
-    // if (!authorized) {
-    //     console.error("\n❌ ERROR: Authorization not attached!");
-    //     console.error("The account must have EIP-7702 authorization attached before initialization.");
-    //     console.error("\nPlease run: npx tsx test/attache7702Test.ts");
-    //     throw new Error("Account must have authorization attached before initialization");
-    // }
-    // console.log("✅ Authorization confirmed - account has delegation attached\n");
+    // console.log("userop hash:: ", hash);
 
     // Check account bytecode
     // const code = await publicClient.getCode({ address: owner.account.address });
