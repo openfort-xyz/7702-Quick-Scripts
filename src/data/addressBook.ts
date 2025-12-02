@@ -16,13 +16,13 @@ export const addressBook = {
   entryPointV9: {
     name: "EntryPoint",
     version: "v0.9",
-    address: "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709",
+    address: "0x433709009b8330fda32311df1c2afa402ed8d009", // "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709",
     note: "ERC-4337 entry point",
   },
   opf7702ImplV1: {
     name: "Openfort 7702 Implementation",
     version: "v1",
-    address: "0x770201093028dff97683df845D6cDF731D01Ff15",
+    address: "0x77020901f40BE88Df754E810dA9868933787652B", // "0x770201093028dff97683df845D6cDF731D01Ff15",
     note: "Used for 7702 account deployments",
   },
   paymasterV9: {
