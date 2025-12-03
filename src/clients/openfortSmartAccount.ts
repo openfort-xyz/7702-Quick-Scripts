@@ -92,7 +92,7 @@ export async function openfortAccount(publicClient: PublicClient, wallet: Privat
             })
         },
         async signUserOperation(parameters) {
-            const { chainId = publicClient.chain.id, authorization, ...userOperation } = parameters
+            const { chainId = publicClient.chain!.id, authorization, ...userOperation } = parameters
             const packedUserOp = toPackedUserOperation({ ...userOperation, sender: wallet.address });
             const userOpHash = await publicClient.request({
                 method: "eth_call",
