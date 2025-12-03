@@ -44,7 +44,7 @@ const main = async (
 ) => {
     const owner = privateKeyToAccount(process.env.OWNER_7702_PRIVATE_KEY! as Hex);
 
-    const bundlerUrl = process.env.BUNDLER_URL || getFreeBundlerUrl(chain.id);
+    const bundlerUrl = "https://rpc.erc4337.io/11155420";
 
     const bundlerClient = createFreeBundler({
         chain,
