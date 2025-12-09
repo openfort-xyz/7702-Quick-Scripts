@@ -199,7 +199,7 @@ const main = async (
     const gasFee = await axios.post(
         bundlerUrl,
         {
-            'id': 11155420,
+            'id': bundlerClient.chain.id,
             'method': 'skandha_getGasPrice'
         },
         {
@@ -239,7 +239,7 @@ const main = async (
                 },
                 entrypoint09Address
             ],
-            "id": 11155420
+            "id": bundlerClient.chain.id
         },
         {
             headers: {
@@ -250,7 +250,6 @@ const main = async (
 
     console.log("estimation response:: ", userOpGas.data);
 
-    // Build complete UserOperation object
     const userOp = {
         sender: await openfortAccount.getAddress(),
         nonce: toHex(await openfortAccount.getNonce()),
@@ -264,7 +263,6 @@ const main = async (
         paymasterAndData: '0x'
     };
 
-    // Sign the UserOperation (convert hex strings to bigints for signing)
     const signature = await openfortAccount.signUserOperation({
         sender: userOp.sender,
         nonce: await openfortAccount.getNonce(),
@@ -276,7 +274,7 @@ const main = async (
         maxPriorityFeePerGas: BigInt(gasFee.data.result.maxPriorityFeePerGas),
         maxFeePerGas: BigInt(gasFee.data.result.maxFeePerGas),
         paymasterAndData: userOp.paymasterAndData as `0x${string}`,
-        signature: '0x' as `0x${string}` // placeholder for typing, will be generated
+        signature: '0x' as `0x${string}`
     });
 
     const sendUserOperation = await axios.post(
@@ -291,7 +289,7 @@ const main = async (
                 },
                 entrypoint09Address
             ],
-            'id': 123
+            'id': bundlerClient.chain.id
         },
         {
             headers: {
@@ -302,20 +300,42 @@ const main = async (
 
     console.log("sendUserOperation response:: ", sendUserOperation.data);
 
-    // const hash = await bundlerClient.sendUserOperation({
-    //     account: openfortAccount,
-    //     authorization,
-    //     factory: authorization ? "0x7702" : undefined,
-    //     factoryData: authorization ? "0x" : undefined,
-    //     calls: [
-    //         {
-    //             to: "0x03b22d7742fA2A8a8f01b64F40F0F2185E965cB8",
-    //             value: parseUnits('0.00000001', 18)
-    //         }
-    //     ],
-    // });
+    const userOpHash = sendUserOperation.data.result;
+    console.log("UserOp hash:: ", userOpHash);
 
-    // console.log("userop hash:: ", hash);
-    // return hash;
+    console.log("Waiting for UserOperation to be mined...");
+    let receipt = null;
+    let attempts = 0;
+    const maxAttempts = 60;
+
+    while (!receipt && attempts < maxAttempts) {
+        const response = await axios.post(
+            bundlerUrl,
+            {
+                'id': bundlerClient.chain.id,
+                'method': 'eth_getUserOperationReceipt',
+                'params': [userOpHash]
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
+
+        if (response.data.result) {
+            receipt = response.data.result;
+            console.log("\n✅ UserOperation mined successfully!");
+            console.log("userOperationReceipt response:: ", response.data);
+        } else {
+            attempts++;
+            process.stdout.write(`\rAttempt ${attempts}/${maxAttempts}...`);
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+        }
+    }
+
+    if (!receipt) {
+        console.log("\n❌ Timeout: UserOperation receipt not found after 2 minutes");
+    }
 }
 main(optimismSepolia);
