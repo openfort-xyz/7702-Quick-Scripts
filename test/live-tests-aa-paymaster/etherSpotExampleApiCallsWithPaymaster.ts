@@ -1,10 +1,12 @@
 import createFreeBundler, { getFreeBundlerUrl } from "@etherspot/free-bundler";
 import {
     Chain,
+    concat,
     decodeFunctionData,
     encodeAbiParameters,
     encodeFunctionData,
     Hex,
+    pad,
     parseUnits,
     publicActions,
     SignAuthorizationReturnType,
@@ -23,6 +25,9 @@ import { optimismSepolia } from "viem/chains";
 import dotenv from "dotenv";
 import { ABI_7702_ACCOUNT } from "../../src/data/abis";
 import axios from 'axios';
+import { helpers } from "../../src/helpers/paymaster/paymasterData";
+import { getHash } from "../../src/helpers/paymaster/paymasterActions";
+import { addressBook } from "../../src/data/addressBook";
 
 dotenv.config();
 
@@ -45,6 +50,8 @@ const main = async (
     chain: Chain
 ) => {
     const owner = privateKeyToAccount(process.env.OWNER_7702_PRIVATE_KEY! as Hex);
+    const paymasterSigner = privateKeyToAccount(process.env.PAYMASTER_SIGNER_PRIVATE_KEY! as Hex);
+    const PAYMASTER_ADDRESS = addressBook.paymasterV9.address;
 
     const bundlerUrl = "https://rpc.erc4337.io/11155420";
 
@@ -218,6 +225,14 @@ const main = async (
         }
     ];
 
+    // Create dummy paymaster data for gas estimation
+    const dummyValidUntil = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours
+    const dummyValidAfter = 0;
+    const dummyPaymasterData = helpers.appendSignatureToPaymasterData(
+        helpers.createVerifyingModePaymasterData(dummyValidUntil, dummyValidAfter),
+        helpers.DUMMY_SIG
+    );
+
     const userOpGas = await axios.post(
         bundlerUrl,
         {
@@ -234,7 +249,7 @@ const main = async (
                     "preVerificationGas": "0x0",
                     "maxPriorityFeePerGas": "0x3b9aca00",
                     "maxFeePerGas": "0x7a5cf70d5",
-                    "paymasterAndData": "0x",
+                    "paymasterAndData": `${PAYMASTER_ADDRESS}${dummyPaymasterData.slice(2)}`,
                     "signature": await openfortAccount.getStubSignature()
                 },
                 entrypoint09Address
@@ -250,6 +265,40 @@ const main = async (
 
     console.log("estimation response:: ", userOpGas.data);
 
+    // Create real paymaster data (without signature yet)
+    const validUntil = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
+    const validAfter = 0;
+
+    // Get gas limits from estimation
+    const paymasterVerificationGasLimit = userOpGas.data.result.paymasterVerificationGasLimit
+        ? BigInt(userOpGas.data.result.paymasterVerificationGasLimit)
+        : 150000n; // Fallback if not provided
+    const paymasterPostOpGasLimit = userOpGas.data.result.paymasterPostOpGasLimit
+        ? BigInt(userOpGas.data.result.paymasterPostOpGasLimit)
+        : 50000n; // Fallback if not provided
+
+    // Create paymaster data WITHOUT gas limits (just mode + timestamps)
+    const paymasterDataWithoutSig = helpers.createVerifyingModePaymasterData(validUntil, validAfter);
+
+    // Build complete paymasterAndData with gas limits included
+    // Structure: address (20) + verificationGasLimit (16) + postOpGasLimit (16) + mode+timestamps (13)
+    const paymasterAndDataWithoutSig = concat([
+        PAYMASTER_ADDRESS,                                          // 20 bytes
+        pad(toHex(paymasterVerificationGasLimit), { size: 16 }),    // 16 bytes
+        pad(toHex(paymasterPostOpGasLimit), { size: 16 }),          // 16 bytes
+        paymasterDataWithoutSig                                     // 13 bytes (mode + validUntil + validAfter)
+    ]) as Hex;
+
+    console.log("\n=== Paymaster Configuration ===");
+    console.log("Paymaster Address:", PAYMASTER_ADDRESS);
+    console.log("Verification Gas Limit:", paymasterVerificationGasLimit.toString());
+    console.log("PostOp Gas Limit:", paymasterPostOpGasLimit.toString());
+    console.log("Paymaster Data (without sig):", paymasterDataWithoutSig);
+    console.log("paymasterAndData (without sig):", paymasterAndDataWithoutSig);
+    console.log("paymasterAndData length:", (paymasterAndDataWithoutSig.length - 2) / 2, "bytes");
+    console.log("Valid Until:", new Date(validUntil * 1000).toISOString());
+    console.log("Valid After:", validAfter);
+
     const userOp = {
         sender: await openfortAccount.getAddress(),
         nonce: toHex(await openfortAccount.getNonce()),
@@ -260,9 +309,63 @@ const main = async (
         preVerificationGas: userOpGas.data.result.preVerificationGas,
         maxPriorityFeePerGas: gasFee.data.result.maxPriorityFeePerGas,
         maxFeePerGas: gasFee.data.result.maxFeePerGas,
-        paymasterAndData: '0x'
+        paymasterAndData: paymasterAndDataWithoutSig
     };
 
+    // Get paymaster hash from contract
+    console.log("\n=== Getting Paymaster Hash ===");
+
+    // Manually construct PackedUserOperation to match contract ABI structure
+    const verificationGasLimit = BigInt(userOpGas.data.result.verificationGasLimit);
+    const callGasLimit = BigInt(userOpGas.data.result.callGasLimit);
+    const maxPriorityFeePerGas = BigInt(gasFee.data.result.maxPriorityFeePerGas);
+    const maxFeePerGas = BigInt(gasFee.data.result.maxFeePerGas);
+
+    // Pack gas limits into bytes32 fields as per ERC-4337 v0.7+ format
+    const accountGasLimits = concat([
+        pad(toHex(verificationGasLimit), { size: 16 }),
+        pad(toHex(callGasLimit), { size: 16 })
+    ]);
+    const gasFees = concat([
+        pad(toHex(maxPriorityFeePerGas), { size: 16 }),
+        pad(toHex(maxFeePerGas), { size: 16 })
+    ]);
+
+    const packedUserOpForHash = {
+        sender: userOp.sender as `0x${string}`,
+        nonce: BigInt(userOp.nonce),
+        initCode: userOp.initCode as `0x${string}`,
+        callData: userOp.callData as `0x${string}`,
+        accountGasLimits: accountGasLimits as `0x${string}`,
+        preVerificationGas: BigInt(userOpGas.data.result.preVerificationGas),
+        gasFees: gasFees as `0x${string}`,
+        paymasterAndData: paymasterAndDataWithoutSig as `0x${string}`,
+        signature: '0x' as `0x${string}`
+    };
+
+    const VERIFYING_MODE = 0;
+    const pmHash = await getHash(PAYMASTER_ADDRESS, bundlerClient, VERIFYING_MODE, packedUserOpForHash);
+    console.log("Paymaster hash:", pmHash);
+
+    // Sign paymaster hash
+    const pmSignature = await paymasterSigner.signMessage({
+        message: { raw: pmHash as Hex }
+    });
+    console.log("Paymaster signature:", pmSignature);
+
+    // Append signature to complete paymasterAndData
+    const paymasterAndDataWithSignature = concat([
+        paymasterAndDataWithoutSig,
+        pmSignature.slice(2) as Hex  // Remove 0x prefix
+    ]) as Hex;
+
+    // Update userOp with signed paymaster data
+    userOp.paymasterAndData = paymasterAndDataWithSignature;
+    console.log("Final paymasterAndData (with sig):", paymasterAndDataWithSignature);
+    console.log("Final paymasterAndData Length:", (paymasterAndDataWithSignature.length - 2) / 2, "bytes");
+    console.log("Expected: 130 bytes (20 address + 16 verificationGasLimit + 16 postOpGasLimit + 1 mode + 6 validUntil + 6 validAfter + 65 signature)");
+
+    console.log("\n=== Signing UserOperation ===");
     const signature = await openfortAccount.signUserOperation({
         sender: userOp.sender,
         nonce: await openfortAccount.getNonce(),
@@ -273,9 +376,13 @@ const main = async (
         preVerificationGas: BigInt(userOpGas.data.result.preVerificationGas),
         maxPriorityFeePerGas: BigInt(gasFee.data.result.maxPriorityFeePerGas),
         maxFeePerGas: BigInt(gasFee.data.result.maxFeePerGas),
-        paymasterAndData: userOp.paymasterAndData as `0x${string}`,
+        paymasterAndData: paymasterAndDataWithSignature as `0x${string}`,
         signature: '0x' as `0x${string}`
     });
+
+    console.log("\n=== Sending UserOperation with Paymaster ===");
+    console.log("paymasterAndData:", paymasterAndDataWithSignature);
+    console.log("paymasterAndData length:", paymasterAndDataWithSignature.length, "chars");
 
     const sendUserOperation = await axios.post(
         bundlerUrl,
@@ -284,7 +391,16 @@ const main = async (
             'method': 'eth_sendUserOperation',
             'params': [
                 {
-                    ...userOp,
+                    sender: userOp.sender,
+                    nonce: userOp.nonce,
+                    initCode: userOp.initCode,
+                    callData: userOp.callData,
+                    callGasLimit: userOp.callGasLimit,
+                    verificationGasLimit: userOp.verificationGasLimit,
+                    preVerificationGas: userOp.preVerificationGas,
+                    maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+                    maxFeePerGas: userOp.maxFeePerGas,
+                    paymasterAndData: paymasterAndDataWithSignature,
                     signature
                 },
                 entrypoint09Address
