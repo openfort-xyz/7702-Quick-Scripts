@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@etherspot/free-bundler": "^1.0.1",
+    "axios": "^1.13.2",
     "dotenv": "^17.2.3",
     "viem": "^2.40.0"
   }

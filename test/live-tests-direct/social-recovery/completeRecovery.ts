@@ -38,7 +38,7 @@ async function main() {
     // 2. Get keys
     let signatures: Hex[] = [];
     signatures[0] = "0xb5553de315e0edf504d9150af82dafa5c4667fa618ed0a6f19c69b41166c55103ac225168df54212a25c1c01fd35bebfea408fdac2e31ddd6f80a4bbf9a5f1cb0000000000000000000000000000000000000000000000000000000000000000";
-    
+
     // 3. Create calldata
     console.log("Creating calldata...");
     const callData = completeRecoveryCallData(

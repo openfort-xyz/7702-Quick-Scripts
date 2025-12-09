@@ -10,7 +10,7 @@ export async function checkAuthorization(
         if (bytecode) {
             const bc = bytecode.toLowerCase();
             if (bc.startsWith("0xef0100") && bc.length >= 48) {
-                const attachedAddress = "0x" + bc.slice(8, 48) 
+                const attachedAddress = "0x" + bc.slice(8, 48)
                 console.log("Attached address:", attachedAddress);
                 return true;
             }

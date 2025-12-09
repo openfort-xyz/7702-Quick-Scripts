@@ -89,7 +89,7 @@ export const withdrawToCallData = (withdrawAddress: Hex, amount: bigint): Hex =>
 //                   PUBLIC / EXTERNAL GETTERS
 // =============================================================
 
-export const getMANAGER = async (address: Hex, pC: PublicClient) => 
+export const getMANAGER = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -97,7 +97,7 @@ export const getMANAGER = async (address: Hex, pC: PublicClient) =>
         args: [],
     });
 
-export const getMANAGER_ROLE = async (address: Hex, pC: PublicClient) => 
+export const getMANAGER_ROLE = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -105,7 +105,7 @@ export const getMANAGER_ROLE = async (address: Hex, pC: PublicClient) =>
         args: [],
     });
 
-export const getOWNER = async (address: Hex, pC: PublicClient) => 
+export const getOWNER = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -114,14 +114,14 @@ export const getOWNER = async (address: Hex, pC: PublicClient) =>
     });
 
 export const getCostInToken = async (
-    address: Hex, 
+    address: Hex,
     pC: PublicClient,
     actualGasCost: bigint,
     postOpGas: bigint,
     actualUserOpFeePerGas: bigint,
     exchangeRate: bigint,
 
-) => 
+) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -129,7 +129,7 @@ export const getCostInToken = async (
         args: [actualGasCost, postOpGas, actualUserOpFeePerGas, exchangeRate],
     });
 
-export const getDeposit = async (address: Hex, pC: PublicClient) => 
+export const getDeposit = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -137,7 +137,7 @@ export const getDeposit = async (address: Hex, pC: PublicClient) =>
         args: [],
     });
 
-export const getHash = async (address: Hex, pC: PublicClient, mode: number, userOp: PackedUserOperation) => 
+export const getHash = async (address: Hex, pC: PublicClient, mode: number, userOp: PackedUserOperation) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -145,7 +145,7 @@ export const getHash = async (address: Hex, pC: PublicClient, mode: number, user
         args: [mode, userOp],
     });
 
-export const getRoleAdmin = async (address: Hex, pC: PublicClient, role: Hex) => 
+export const getRoleAdmin = async (address: Hex, pC: PublicClient, role: Hex) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -153,7 +153,7 @@ export const getRoleAdmin = async (address: Hex, pC: PublicClient, role: Hex) =>
         args: [role],
     });
 
-export const getSigners = async (address: Hex, pC: PublicClient) => 
+export const getSigners = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -161,7 +161,7 @@ export const getSigners = async (address: Hex, pC: PublicClient) =>
         args: [],
     });
 
-export const hasRole = async (address: Hex, pC: PublicClient, role: Hex, account: Hex) => 
+export const hasRole = async (address: Hex, pC: PublicClient, role: Hex, account: Hex) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -169,7 +169,7 @@ export const hasRole = async (address: Hex, pC: PublicClient, role: Hex, account
         args: [role, account],
     });
 
-export const signerAt = async (address: Hex, pC: PublicClient, id: bigint) => 
+export const signerAt = async (address: Hex, pC: PublicClient, id: bigint) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -177,7 +177,7 @@ export const signerAt = async (address: Hex, pC: PublicClient, id: bigint) =>
         args: [id],
     });
 
-export const signerCount = async (address: Hex, pC: PublicClient) => 
+export const signerCount = async (address: Hex, pC: PublicClient) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,
@@ -185,7 +185,7 @@ export const signerCount = async (address: Hex, pC: PublicClient) =>
         args: [],
     });
 
-export const signers = async (address: Hex, pC: PublicClient, account: Hex) => 
+export const signers = async (address: Hex, pC: PublicClient, account: Hex) =>
     await pC.readContract({
         address,
         abi: ABI_PAYMASTER_V3,

@@ -25,10 +25,10 @@ async function main() {
 
     const pendingStatus = await getPendingStatusGuardians(accountAddress, publicClient, getAllGuardians[0]);
     console.log("Pending Status of first guardian:", pendingStatus);
-    
+
     const pendingStatus_2 = await getPendingStatusGuardians(accountAddress, publicClient, computeKeyIdEOA("0x6386b339C3DEc11635C5829025eFE8964DE03b05"));
     console.log("Pending Status of first guardian 2:", pendingStatus_2);
-    
+
     const pendingStatus_3 = await getPendingStatusGuardians(accountAddress, publicClient, computeKeyIdEOA("0x5D7b70802106c25F3363fC0CA3E799A4852221d3"));
     console.log("Pending Status of first guardian 3:", pendingStatus_3);
 

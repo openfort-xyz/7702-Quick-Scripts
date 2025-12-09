@@ -12,7 +12,7 @@ async function main() {
     }
 
     const publicClient = buildPublicClient(baseSepolia, rpcUrl);
-    const wallets = walletsClient(baseSepolia, rpcUrl); 
+    const wallets = walletsClient(baseSepolia, rpcUrl);
 
     const entryPointAddress = getEntryPoint(wallets.walletClientOwner7702!.account!.address, publicClient);
 

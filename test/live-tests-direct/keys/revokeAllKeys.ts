@@ -40,9 +40,9 @@ async function main() {
     console.log("Sending initialization transaction to owner address...");
     const txHash = await owner.sendTransaction({
         account: owner.account,
-        to: owner.account.address, 
+        to: owner.account.address,
         data: callData,
-        chain: baseSepolia 
+        chain: baseSepolia
     });
     console.log("Transaction sent! Hash:", txHash);
 

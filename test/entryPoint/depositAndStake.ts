@@ -29,7 +29,7 @@ async function main() {
     if (!owner.account) {
         throw new Error("walletClientOwner7702 is missing an account");
     }
-    
+
     console.log("Wallet Clients initialized:", owner.account?.address);
     console.log("Wallet Balance:", await publicClient.getBalance({ address: owner.account!.address }));
 

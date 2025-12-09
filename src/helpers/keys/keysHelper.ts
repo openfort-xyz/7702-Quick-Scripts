@@ -35,7 +35,7 @@ export const revokeAllKeysCallData = (): Hex =>
 //                   PUBLIC / EXTERNAL GETTERS
 // =============================================================
 
-export const getKeyRegistrationInfo = async (address: Hex, pC: PublicClient, id: bigint) => 
+export const getKeyRegistrationInfo = async (address: Hex, pC: PublicClient, id: bigint) =>
     await pC.readContract({
         address,
         abi: ABI_7702_ACCOUNT,
@@ -43,7 +43,7 @@ export const getKeyRegistrationInfo = async (address: Hex, pC: PublicClient, id:
         args: [id],
     });
 
-export const getKeyById = async (address: Hex, pC: PublicClient, id: bigint) => 
+export const getKeyById = async (address: Hex, pC: PublicClient, id: bigint) =>
     await pC.readContract({
         address,
         abi: ABI_7702_ACCOUNT,

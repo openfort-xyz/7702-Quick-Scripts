@@ -8,6 +8,7 @@ import {
     parseUnits,
     publicActions,
     SignAuthorizationReturnType,
+    toHex,
     TypedData,
     TypedDataDefinition,
     walletActions
@@ -21,6 +22,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia } from "viem/chains";
 import dotenv from "dotenv";
 import { ABI_7702_ACCOUNT } from "../../src/data/abis";
+import axios from 'axios';
 
 dotenv.config();
 
@@ -32,9 +34,9 @@ type Call = {
 
 const callType = {
     components: [
-      { name: 'target', type: 'address' },
-      { name: 'value', type: 'uint256' },
-      { name: 'data', type: 'bytes' },
+        { name: 'target', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'data', type: 'bytes' },
     ],
     type: 'tuple',
 };
@@ -61,14 +63,14 @@ const main = async (
             address: entrypoint09Address,
             version: "0.8" // using 0.8 temporarily, until viem supports 0.9
         },
-        async encodeCalls (calls: readonly Call[]) {
+        async encodeCalls(calls: readonly Call[]) {
             return encodeFunctionData({
                 abi: ABI_7702_ACCOUNT,
                 functionName: "execute",
                 args: [
                     "0x0100000000000000000000000000000000000000000000000000000000000000", // mode_1
                     encodeAbiParameters(
-                        [{...callType, type: 'tuple[]'}],
+                        [{ ...callType, type: 'tuple[]' }],
                         [calls.map((call) => {
                             return {
                                 target: call.to,
@@ -85,7 +87,7 @@ const main = async (
                 abi: ABI_7702_ACCOUNT,
                 data
             });
-            if(res.functionName === "executeBatch") {
+            if (res.functionName === "executeBatch") {
                 return res.args[0].map((call) => {
                     return {
                         to: call.target,
@@ -142,7 +144,7 @@ const main = async (
         },
         async signUserOperation(parameters) {
             const { chainId = bundlerClient.chain.id, authorization, ...userOperation } = parameters
-            const packedUserOp = toPackedUserOperation({...userOperation, sender: owner.address});
+            const packedUserOp = toPackedUserOperation({ ...userOperation, sender: owner.address });
             const userOpHash = await bundlerClient.request({
                 method: "eth_call",
                 params: [
@@ -186,27 +188,134 @@ const main = async (
 
     const delegateAddress = openfortAccount.authorization?.address;
     let authorization: SignAuthorizationReturnType | undefined;
-    if(delegateAddress && senderCode !== `0xef0100${delegateAddress.toLowerCase().substring(2)}`) {
+    if (delegateAddress && senderCode !== `0xef0100${delegateAddress.toLowerCase().substring(2)}`) {
         authorization = await bundlerClient.signAuthorization({
             account: owner,
             contractAddress: delegateAddress
         })
     }
 
-    const hash = await bundlerClient.sendUserOperation({
-        account: openfortAccount,
-        authorization,
-        factory: authorization ? "0x7702" : undefined,
-        factoryData: authorization ? "0x" : undefined,
-        calls: [
-            {
-                to: "0x03b22d7742fA2A8a8f01b64F40F0F2185E965cB8",
-                value: parseUnits('0.00000001', 18)
+
+    const gasFee = await axios.post(
+        bundlerUrl,
+        {
+            'id': 11155420,
+            'method': 'skandha_getGasPrice'
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
             }
-        ],
+        }
+    );
+
+    console.log("gasFee:: ", gasFee.data);
+
+    const call: Call[] = [
+        {
+            to: "0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1",
+            value: parseUnits('0.00000001', 18)
+        }
+    ];
+
+    const userOpGas = await axios.post(
+        bundlerUrl,
+        {
+            "jsonrpc": "2.0",
+            "method": "eth_estimateUserOperationGas",
+            "params": [
+                {
+                    "sender": await openfortAccount.getAddress(),
+                    "nonce": "0x0",
+                    "initCode": "0x7702",
+                    "callData": await openfortAccount.encodeCalls(call),
+                    "callGasLimit": "0x0",
+                    "verificationGasLimit": "0x0",
+                    "preVerificationGas": "0x0",
+                    "maxPriorityFeePerGas": "0x3b9aca00",
+                    "maxFeePerGas": "0x7a5cf70d5",
+                    "paymasterAndData": "0x",
+                    "signature": await openfortAccount.getStubSignature()
+                },
+                entrypoint09Address
+            ],
+            "id": 11155420
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    console.log("estimation response:: ", userOpGas.data);
+
+    // Build complete UserOperation object
+    const userOp = {
+        sender: await openfortAccount.getAddress(),
+        nonce: toHex(await openfortAccount.getNonce()),
+        initCode: '0x7702',
+        callData: await openfortAccount.encodeCalls(call),
+        callGasLimit: userOpGas.data.result.callGasLimit,
+        verificationGasLimit: userOpGas.data.result.verificationGasLimit,
+        preVerificationGas: userOpGas.data.result.preVerificationGas,
+        maxPriorityFeePerGas: gasFee.data.result.maxPriorityFeePerGas,
+        maxFeePerGas: gasFee.data.result.maxFeePerGas,
+        paymasterAndData: '0x'
+    };
+
+    // Sign the UserOperation (convert hex strings to bigints for signing)
+    const signature = await openfortAccount.signUserOperation({
+        sender: userOp.sender,
+        nonce: await openfortAccount.getNonce(),
+        initCode: userOp.initCode as `0x${string}`,
+        callData: userOp.callData,
+        callGasLimit: BigInt(userOpGas.data.result.callGasLimit),
+        verificationGasLimit: BigInt(userOpGas.data.result.verificationGasLimit),
+        preVerificationGas: BigInt(userOpGas.data.result.preVerificationGas),
+        maxPriorityFeePerGas: BigInt(gasFee.data.result.maxPriorityFeePerGas),
+        maxFeePerGas: BigInt(gasFee.data.result.maxFeePerGas),
+        paymasterAndData: userOp.paymasterAndData as `0x${string}`,
+        signature: '0x' as `0x${string}` // placeholder for typing, will be generated
     });
 
-    console.log("userop hash:: ", hash);
-    return hash;
+    const sendUserOperation = await axios.post(
+        bundlerUrl,
+        {
+            'jsonrpc': '2.0',
+            'method': 'eth_sendUserOperation',
+            'params': [
+                {
+                    ...userOp,
+                    signature
+                },
+                entrypoint09Address
+            ],
+            'id': 123
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    console.log("sendUserOperation response:: ", sendUserOperation.data);
+
+    // const hash = await bundlerClient.sendUserOperation({
+    //     account: openfortAccount,
+    //     authorization,
+    //     factory: authorization ? "0x7702" : undefined,
+    //     factoryData: authorization ? "0x" : undefined,
+    //     calls: [
+    //         {
+    //             to: "0x03b22d7742fA2A8a8f01b64F40F0F2185E965cB8",
+    //             value: parseUnits('0.00000001', 18)
+    //         }
+    //     ],
+    // });
+
+    // console.log("userop hash:: ", hash);
+    // return hash;
 }
 main(optimismSepolia);
