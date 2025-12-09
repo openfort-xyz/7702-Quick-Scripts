@@ -28,7 +28,7 @@ export const addressBook = {
   paymasterV9: {
     name: "Paymaster",
     version: "v3Epv9",
-    address: "0x",
+    address: "0xDeaD9FeEc687b3785ce66124b15C40b00d69dbd1", // Paymaster V3 EPv9 with Async feature
     note: "Used for gas sponsorship",
   },
   erc20: {
