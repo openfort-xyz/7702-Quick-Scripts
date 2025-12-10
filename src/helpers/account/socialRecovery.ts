@@ -12,56 +12,56 @@ export const proposeGuardianCallData = (guardian: Hex): Hex =>
         args: [guardian],
     });
 
-export const confirmGuardianProposalCallData = (guardian: Hex): Hex => 
+export const confirmGuardianProposalCallData = (guardian: Hex): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "confirmGuardianProposal",
         args: [guardian],
     });
 
-export const cancelGuardianProposalCallData = (guardian: Hex): Hex => 
+export const cancelGuardianProposalCallData = (guardian: Hex): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "cancelGuardianProposal",
         args: [guardian],
     });
 
-export const revokeGuardianCallData = (guardian: Hex): Hex => 
+export const revokeGuardianCallData = (guardian: Hex): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "revokeGuardian",
         args: [guardian],
     });
 
-export const confirmGuardianRevocationCallData = (guardian: Hex): Hex => 
+export const confirmGuardianRevocationCallData = (guardian: Hex): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "confirmGuardianRevocation",
         args: [guardian],
     });
 
-export const cancelGuardianRevocationCallData = (guardian: Hex): Hex => 
+export const cancelGuardianRevocationCallData = (guardian: Hex): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "cancelGuardianRevocation",
         args: [guardian],
     });
 
-export const startRecoveryCallData = (recoveryKey: IKeys.IKey): Hex => 
+export const startRecoveryCallData = (recoveryKey: IKeys.IKey): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "startRecovery",
         args: [recoveryKey],
     });
 
-export const completeRecoveryCallData = (signatures: Hex[]): Hex => 
+export const completeRecoveryCallData = (signatures: Hex[]): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "completeRecovery",
         args: [signatures],
     });
 
-export const cancelRecoveryCallData = (): Hex => 
+export const cancelRecoveryCallData = (): Hex =>
     encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "cancelRecovery",

@@ -1,0 +1,5 @@
+src/data/accountConstants.ts:ethereum-private-key-hex:30
+test/live-tests-direct/social-recovery/startRecovery.ts:ethereum-private-key-hex:24
+test/live-tests-direct/social-recovery/startRecovery.ts:ethereum-private-key-hex:25
+test/live-tests-aa-no-paymaster/etherSpotExampleApiCalls.ts:ethereum-private-key-hex:71
+test/live-tests-aa-paymaster/etherSpotExampleApiCallsWithPaymaster.ts:ethereum-private-key-hex:71

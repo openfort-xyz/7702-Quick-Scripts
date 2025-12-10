@@ -20,9 +20,9 @@ const requireEnv = (name: string): string => {
 
 async function main() {
     const recoveryKey: IKeys.IKey = {
-        pubKey: { 
-            x: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex, 
-            y: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex 
+        pubKey: {
+            x: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex,
+            y: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex
         },
         eoaAddress: "0xd9B476fb20933d06A6cbfAF35A2212C40a829124" as Hex,
         keyType: KeyType.EOA

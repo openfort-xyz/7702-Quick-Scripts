@@ -66,7 +66,7 @@ async function main() {
         ],
     })
     const datas: Hex[] = [transfer, transfer];
-    
+
     // 2. Create Call
     const call: StrictCall[] = buildExecuteBatchCall(
         addresses,

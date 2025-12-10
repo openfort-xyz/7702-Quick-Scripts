@@ -4,6 +4,7 @@
 // addresses.
 
 import { Hex } from "viem";
+import { treasure } from "viem/chains";
 
 type AddressBook = {
   name: string;
@@ -28,7 +29,13 @@ export const addressBook = {
   paymasterV9: {
     name: "Paymaster",
     version: "v3Epv9",
-    address: "0x",
+    address: "0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a97", // Paymaster V3 EPv9 with Async feature (old)0xDeaD9FeEc687b3785ce66124b15C40b00d69dbd1
+    note: "Used for gas sponsorship",
+  },
+  treasure: {
+    name: "EOA Treasury",
+    version: "0.1",
+    address: "0x6E10F8bEfC4069Faa560bF3DdFe441820BbE37d0", // Paymaster V3 EPv9 with Async feature
     note: "Used for gas sponsorship",
   },
   erc20: {
@@ -41,6 +48,12 @@ export const addressBook = {
     name: "USDC Token",
     version: "base-sepolia",
     address: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    note: "USDC stablecoin",
+  },
+  usdcOpSepolia: {
+    name: "USDC Token",
+    version: "op-sepolia",
+    address: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
     note: "USDC stablecoin",
   },
   erc721: {

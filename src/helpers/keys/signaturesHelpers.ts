@@ -25,7 +25,7 @@ export type P256Signature = {
 };
 
 const OUTER_WRAP_ABI = [
-    { type: "uint256" }, 
+    { type: "uint256" },
     { type: "bytes" },
 ] as const;
 

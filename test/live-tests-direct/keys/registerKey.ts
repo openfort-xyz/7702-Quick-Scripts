@@ -48,7 +48,7 @@ async function main() {
         account: owner.account,
         to: owner.account.address,
         data: callData,
-        chain: baseSepolia 
+        chain: baseSepolia
         });
     console.log("Transaction sent! Hash:", txHash);
 

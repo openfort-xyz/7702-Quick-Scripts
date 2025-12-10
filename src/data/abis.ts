@@ -2913,6 +2913,22 @@ export const ABI_PAYMASTER_V3 =
         },
         {
             "inputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "dataLength",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "pmSignatureLength",
+                    "type": "uint256"
+                }
+            ],
+            "name": "InvalidPaymasterSignatureLength",
+            "type": "error"
+        },
+        {
+            "inputs": [
 
             ],
             "name": "MultiSigner__SignerAlreadyExist",
@@ -3163,7 +3179,7 @@ export const ABI_PAYMASTER_V3 =
             "inputs": [
 
             ],
-            "name": "ENTRY_POINT_V8",
+            "name": "ENTRY_POINT_V9",
             "outputs": [
                 {
                     "internalType": "contract IEntryPoint",
