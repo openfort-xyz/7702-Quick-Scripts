@@ -228,10 +228,18 @@ const main = async (
     // Create dummy paymaster data for gas estimation
     const dummyValidUntil = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // 24 hours
     const dummyValidAfter = 0;
-    const dummyPaymasterData = helpers.appendSignatureToPaymasterData(
-        helpers.createVerifyingModePaymasterData(dummyValidUntil, dummyValidAfter),
-        helpers.DUMMY_SIG
-    );
+    const dummyVerificationGasLimit = 150000n; // Estimate for paymaster verification
+    const dummyPostOpGasLimit = 50000n; // Estimate for postOp
+
+    // Build complete dummy paymasterAndData with gas limits
+    const dummyPaymasterData = helpers.createVerifyingModePaymasterData(dummyValidUntil, dummyValidAfter);
+    const dummyPaymasterAndData = concat([
+        PAYMASTER_ADDRESS,                                      // 20 bytes
+        pad(toHex(dummyVerificationGasLimit), { size: 16 }),    // 16 bytes
+        pad(toHex(dummyPostOpGasLimit), { size: 16 }),          // 16 bytes
+        dummyPaymasterData,                                     // 13 bytes (mode + validUntil + validAfter)
+        helpers.DUMMY_SIG.slice(2) as Hex                       // 65 bytes
+    ]) as Hex;
 
     const userOpGas = await axios.post(
         bundlerUrl,
@@ -242,14 +250,14 @@ const main = async (
                 {
                     "sender": await openfortAccount.getAddress(),
                     "nonce": "0x0",
-                    "initCode": "0x7702",
+                    "initCode": "0x", // Empty for EIP-7702
                     "callData": await openfortAccount.encodeCalls(call),
                     "callGasLimit": "0x0",
                     "verificationGasLimit": "0x0",
                     "preVerificationGas": "0x0",
                     "maxPriorityFeePerGas": "0x3b9aca00",
                     "maxFeePerGas": "0x7a5cf70d5",
-                    "paymasterAndData": `${PAYMASTER_ADDRESS}${dummyPaymasterData.slice(2)}`,
+                    "paymasterAndData": dummyPaymasterAndData,
                     "signature": await openfortAccount.getStubSignature()
                 },
                 entrypoint09Address
@@ -269,13 +277,10 @@ const main = async (
     const validUntil = Math.floor(Date.now() / 1000) + (24 * 60 * 60);
     const validAfter = 0;
 
-    // Get gas limits from estimation
-    const paymasterVerificationGasLimit = userOpGas.data.result.paymasterVerificationGasLimit
-        ? BigInt(userOpGas.data.result.paymasterVerificationGasLimit)
-        : 150000n; // Fallback if not provided
-    const paymasterPostOpGasLimit = userOpGas.data.result.paymasterPostOpGasLimit
-        ? BigInt(userOpGas.data.result.paymasterPostOpGasLimit)
-        : 50000n; // Fallback if not provided
+    // Extract verification gas limit from account gas limits (matching Foundry test)
+    let verificationGasLimit = BigInt(userOpGas.data.result.verificationGasLimit);
+    const paymasterVerificationGasLimit = verificationGasLimit; // Reuse account's verification gas limit
+    const paymasterPostOpGasLimit = 50000n; // Constant postOp gas
 
     // Create paymaster data WITHOUT gas limits (just mode + timestamps)
     const paymasterDataWithoutSig = helpers.createVerifyingModePaymasterData(validUntil, validAfter);
@@ -302,7 +307,7 @@ const main = async (
     const userOp = {
         sender: await openfortAccount.getAddress(),
         nonce: toHex(await openfortAccount.getNonce()),
-        initCode: '0x7702',
+        initCode: '0x', // Empty for EIP-7702 (account is delegated EOA, not deployed contract)
         callData: await openfortAccount.encodeCalls(call),
         callGasLimit: userOpGas.data.result.callGasLimit,
         verificationGasLimit: userOpGas.data.result.verificationGasLimit,
@@ -316,7 +321,7 @@ const main = async (
     console.log("\n=== Getting Paymaster Hash ===");
 
     // Manually construct PackedUserOperation to match contract ABI structure
-    const verificationGasLimit = BigInt(userOpGas.data.result.verificationGasLimit);
+    verificationGasLimit = BigInt(userOpGas.data.result.verificationGasLimit);
     const callGasLimit = BigInt(userOpGas.data.result.callGasLimit);
     const maxPriorityFeePerGas = BigInt(gasFee.data.result.maxPriorityFeePerGas);
     const maxFeePerGas = BigInt(gasFee.data.result.maxFeePerGas);
@@ -353,7 +358,7 @@ const main = async (
     });
     console.log("Paymaster signature:", pmSignature);
 
-    // Append signature to complete paymasterAndData
+    // Append signature in SYNC mode (directly append, no length/magic suffix)
     const paymasterAndDataWithSignature = concat([
         paymasterAndDataWithoutSig,
         pmSignature.slice(2) as Hex  // Remove 0x prefix
@@ -361,15 +366,17 @@ const main = async (
 
     // Update userOp with signed paymaster data
     userOp.paymasterAndData = paymasterAndDataWithSignature;
-    console.log("Final paymasterAndData (with sig):", paymasterAndDataWithSignature);
+    console.log("Final paymasterAndData (with sig, SYNC mode):", paymasterAndDataWithSignature);
     console.log("Final paymasterAndData Length:", (paymasterAndDataWithSignature.length - 2) / 2, "bytes");
     console.log("Expected: 130 bytes (20 address + 16 verificationGasLimit + 16 postOpGasLimit + 1 mode + 6 validUntil + 6 validAfter + 65 signature)");
+    console.log("Verification Gas Limit:", paymasterVerificationGasLimit.toString());
+    console.log("PostOp Gas Limit:", paymasterPostOpGasLimit.toString());
 
     console.log("\n=== Signing UserOperation ===");
     const signature = await openfortAccount.signUserOperation({
         sender: userOp.sender,
         nonce: await openfortAccount.getNonce(),
-        initCode: userOp.initCode as `0x${string}`,
+        initCode: '0x' as `0x${string}`, // Empty for EIP-7702
         callData: userOp.callData,
         callGasLimit: BigInt(userOpGas.data.result.callGasLimit),
         verificationGasLimit: BigInt(userOpGas.data.result.verificationGasLimit),
@@ -424,34 +431,88 @@ const main = async (
     let attempts = 0;
     const maxAttempts = 60;
 
-    while (!receipt && attempts < maxAttempts) {
-        const response = await axios.post(
-            bundlerUrl,
-            {
-                'id': bundlerClient.chain.id,
-                'method': 'eth_getUserOperationReceipt',
-                'params': [userOpHash]
-            },
-            {
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
+    // while (!receipt && attempts < maxAttempts) {
+    //     const response = await axios.post(
+    //         bundlerUrl,
+    //         {
+    //             'id': bundlerClient.chain.id,
+    //             'method': 'eth_getUserOperationReceipt',
+    //             'params': [userOpHash]
+    //         },
+    //         {
+    //             headers: {
+    //                 'Content-Type': 'application/json'
+    //             }
+    //         }
+    //     );
 
-        if (response.data.result) {
-            receipt = response.data.result;
-            console.log("\n✅ UserOperation mined successfully!");
-            console.log("userOperationReceipt response:: ", response.data);
-        } else {
-            attempts++;
-            process.stdout.write(`\rAttempt ${attempts}/${maxAttempts}...`);
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+    //     if (response.data.result) {
+    //         receipt = response.data.result;
+    //         console.log("\n✅ UserOperation mined successfully!");
+    //         console.log("userOperationReceipt response:: ", response.data);
+    //     } else {
+    //         attempts++;
+    //         process.stdout.write(`\rAttempt ${attempts}/${maxAttempts}...`);
+    //         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
+    //     }
+    // }
+
+    // if (!receipt) {
+    //     console.log("\n❌ Timeout: UserOperation receipt not found after 2 minutes");
+    // }
+
+    // Create the packed UserOperation for Tenderly simulation
+    console.log("\n=== TENDERLY SIMULATION DATA ===");
+
+    // Build the complete packed user operation tuple
+    const packedUserOp = {
+        sender: userOp.sender,
+        nonce: BigInt(userOp.nonce),
+        initCode: '0x' as `0x${string}`, // Empty for EIP-7702
+        callData: userOp.callData,
+        accountGasLimits: concat([
+            pad(toHex(BigInt(userOp.verificationGasLimit)), { size: 16 }),
+            pad(toHex(BigInt(userOp.callGasLimit)), { size: 16 })
+        ]),
+        preVerificationGas: BigInt(userOp.preVerificationGas),
+        gasFees: concat([
+            pad(toHex(BigInt(userOp.maxPriorityFeePerGas)), { size: 16 }),
+            pad(toHex(BigInt(userOp.maxFeePerGas)), { size: 16 })
+        ]),
+        paymasterAndData: paymasterAndDataWithSignature,
+        signature: signature
+    };
+
+    // Encode the handleOps call
+    const beneficiary = owner.address; // Use owner as beneficiary
+    const handleOpsCalldata = encodeFunctionData({
+        abi: entryPoint08Abi,
+        functionName: "handleOps",
+        args: [[packedUserOp], beneficiary]
+    });
+
+    console.log("\n📋 COPY THIS FOR TENDERLY:");
+    console.log("\n1. Entry Point Address:", entrypoint09Address);
+    console.log("\n2. Calldata:", handleOpsCalldata);
+
+    console.log("\n3. CRITICAL - State Overrides (you MUST set these in Tenderly):");
+    console.log("   For EIP-7702 to work, the sender account must have delegated code.");
+    console.log("\n   State Override for:", owner.address);
+    console.log("   Set code to:", `0xef0100${implementation.toLowerCase().substring(2)}`);
+
+    console.log("\n4. JSON format for Tenderly State Overrides:");
+    const stateOverride = {
+        [owner.address]: {
+            code: `0xef0100${implementation.toLowerCase().substring(2)}`
         }
-    }
+    };
+    console.log(JSON.stringify(stateOverride, null, 2));
 
-    if (!receipt) {
-        console.log("\n❌ Timeout: UserOperation receipt not found after 2 minutes");
-    }
+    console.log("\n📌 Summary:");
+    console.log("   - To: " + entrypoint09Address);
+    console.log("   - From: Any address with ETH (or use bundler address)");
+    console.log("   - Value: 0");
+    console.log("   - Data: " + handleOpsCalldata);
+    console.log("   - State Override: Set account code as shown above");
 }
 main(optimismSepolia);

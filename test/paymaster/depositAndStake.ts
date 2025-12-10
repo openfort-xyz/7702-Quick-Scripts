@@ -21,6 +21,7 @@ async function main() {
     const publicClient = buildPublicClient(optimismSepolia, rpcUrl);
     const wallets = walletsClient(optimismSepolia, rpcUrl);
     const paymasterAddress = getAddress("paymasterV9");
+    const entryPointAddress = getAddress("entryPointV9");
 
     const paymasterOwner = wallets.walletClientPaymasterOwner;
     if (!paymasterOwner) {
@@ -37,7 +38,7 @@ async function main() {
     console.log("deposit:", deposit)
 
     const balanceOfEPBefore = await publicClient.readContract({
-        address: entryPoint08Address,
+        address: entryPointAddress,
         abi: entryPoint08Abi,
         functionName: "balanceOf",
         args: [paymasterAddress]
@@ -45,7 +46,7 @@ async function main() {
     console.log("balanceOf:", balanceOfEPBefore);
 
     const depositInfoBefore = await publicClient.readContract({
-        address: entryPoint08Address,
+        address: entryPointAddress,
         abi: entryPoint08Abi,
         functionName: "getDepositInfo",
         args: [paymasterAddress]
@@ -59,7 +60,7 @@ async function main() {
         to: paymasterAddress,
         data: depositTo,
         chain: optimismSepolia,
-        value: 1_000_000_000_000_00n // 0.0001 ETH
+        value: 1_000_000_000_000_000n // 0.001 ETH
     });
     console.log("Transaction sent! Hash:", txHash);
 
@@ -76,7 +77,7 @@ async function main() {
         to: paymasterAddress,
         data: addStake,
         chain: optimismSepolia,
-        value: 1_000_000_000_000_00n // 0.0001 ETH
+        value: 1_000_000_000_000_000n // 0.001 ETH
     });
     console.log("Transaction sent! Hash:", txHash_2);
 

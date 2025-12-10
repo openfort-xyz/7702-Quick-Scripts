@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { exit } from "node:process";
-import { base } from "viem/chains";
+import { optimismSepolia } from "viem/chains";
 import { getAddress } from "../../src/data/addressBook";
 import { walletsClient } from "../../src/clients/walletClient";
 import { buildPublicClient } from "../../src/clients/publicClient";
@@ -17,10 +17,11 @@ const requireEnv = (name: string): string => {
 
 async function main() {
     // 1. Setup clients
-    const rpcUrl = "https://base-mainnet.g.alchemy.com/v2/EIOmdDtOw7ulufI5S27isOfZfW51PQXB";
-    const publicClient = buildPublicClient(base, rpcUrl);
-    const wallets = walletsClient(base, rpcUrl);
-    const paymasterAddress = "0x8888Fee880063D8C6B96Cf3D4b2C1696CAcf65D2";
+    const rpcUrl = "https://optimism-sepolia-public.nodies.app";
+    const publicClient = buildPublicClient(optimismSepolia, rpcUrl);
+    const wallets = walletsClient(optimismSepolia, rpcUrl);
+    const paymasterAddress = "0xDeaD9FeEc687b3785ce66124b15C40b00d69dbd1";
+    const entryPointAddress = "0x43370900c8de573dB349BEd8DD53b4Ebd3Cce709";
 
     const paymasterOwner = wallets.walletClientPaymasterOwner;
     if (!paymasterOwner) {
@@ -37,7 +38,7 @@ async function main() {
     console.log("deposit:", deposit)
 
     const balanceOfEPBefore = await publicClient.readContract({
-        address: entryPoint08Address,
+        address: entryPointAddress,
         abi: entryPoint08Abi,
         functionName: "balanceOf",
         args: [paymasterAddress]
@@ -45,7 +46,7 @@ async function main() {
     console.log("balanceOf:", balanceOfEPBefore);
 
     const depositInfoBefore = await publicClient.readContract({
-        address: entryPoint08Address,
+        address: entryPointAddress,
         abi: entryPoint08Abi,
         functionName: "getDepositInfo",
         args: [paymasterAddress]
@@ -58,7 +59,7 @@ async function main() {
     //     account: paymasterOwner.account,
     //     to: paymasterAddress,
     //     data: withdrawCalldata,
-    //     chain: base
+    //     chain: optimismSepolia
     // });
     // console.log("Transaction sent! Hash:", txHash);
 
@@ -74,30 +75,30 @@ async function main() {
     //     account: paymasterOwner.account,
     //     to: paymasterAddress,
     //     data: unlockStakeCallDataCalldata,
-    //     chain: base
+    //     chain: optimismSepolia
     // });
     // console.log("Transaction sent! Hash:", txHash_2);
 
-    // // 5. Wait and verify
+    // 5. Wait and verify
     // console.log("Waiting for transaction to be mined...");
     // const receipt_2 = await publicClient.waitForTransactionReceipt({ hash: txHash_2 });
     // console.log("Transaction Status:", receipt_2.status === "success" ? "SUCCESS" : "FAILED");
 
-    // const withdrawToData = withdrawToCallData(paymasterOwner.account.address, deposit);
-    // console.log("Sending transaction 2...");
-    // const txHash_2 = await paymasterOwner.sendTransaction({
-    //     account: paymasterOwner.account,
-    //     to: paymasterAddress,
-    //     data: withdrawToData,
-    //     chain: base
-    // });
-    // console.log("Transaction sent! Hash:", txHash_2);
+    const withdrawToData = withdrawToCallData(paymasterOwner.account.address, deposit);
+    console.log("Sending transaction 2...");
+    const txHash_2 = await paymasterOwner.sendTransaction({
+        account: paymasterOwner.account,
+        to: paymasterAddress,
+        data: withdrawToData,
+        chain: optimismSepolia
+    });
+    console.log("Transaction sent! Hash:", txHash_2);
 
-    // // 5. Wait and verify
-    // console.log("Waiting for transaction to be mined...");
-    // const receipt_2 = await publicClient.waitForTransactionReceipt({ hash: txHash_2 });
-    // console.log("Transaction Status:", receipt_2.status === "success" ? "SUCCESS" : "FAILED");
-    // console.log("Key registration successful! TX Hash:", txHash_2);
+    // 5. Wait and verify
+    console.log("Waiting for transaction to be mined...");
+    const receipt_2 = await publicClient.waitForTransactionReceipt({ hash: txHash_2 });
+    console.log("Transaction Status:", receipt_2.status === "success" ? "SUCCESS" : "FAILED");
+    console.log("Key registration successful! TX Hash:", txHash_2);
 }
 
 main().catch((error) => {

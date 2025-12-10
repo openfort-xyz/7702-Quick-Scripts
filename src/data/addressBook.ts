@@ -29,7 +29,7 @@ export const addressBook = {
   paymasterV9: {
     name: "Paymaster",
     version: "v3Epv9",
-    address: "0xDeaD9FeEc687b3785ce66124b15C40b00d69dbd1", // Paymaster V3 EPv9 with Async feature
+    address: "0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a97", // Paymaster V3 EPv9 with Async feature (old)0xDeaD9FeEc687b3785ce66124b15C40b00d69dbd1
     note: "Used for gas sponsorship",
   },
   treasure: {
