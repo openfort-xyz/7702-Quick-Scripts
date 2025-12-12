@@ -48,6 +48,9 @@ const PAYMASTER_SIG_MAGIC = '0x22e325a297439656' as Hex;
 const dummyPaymasterSig = '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex;
 const sigLen = pad(toHex(dummyPaymasterSig.length), { size: 2 });
 
+console.log("DEBUG: dummyPaymasterSig.length =", dummyPaymasterSig.length);
+console.log("DEBUG: sigLen =", sigLen);
+
 async function getFreshUserOp(openfortAccount: any, call: Call[], gasFee: { maxPriorityFeePerGas: Hex, maxFeePerGas: Hex }, paymasterAddress: Hex): Promise<UserOperation<'0.8'>> {
     return {
         sender: await openfortAccount.getAddress(),
@@ -79,7 +82,7 @@ async function createStubPaymasterData(paymasterAddress: Hex): Promise<Hex> {
     const stubVerificationGasLimit = pad(toHex(400000), { size: 16 });
     const stubPostOpGasLimit = pad(toHex(50000), { size: 16 });
 
-    return concat([
+    const result = concat([
         paymasterAddress,
         stubVerificationGasLimit,
         stubPostOpGasLimit,
@@ -89,6 +92,11 @@ async function createStubPaymasterData(paymasterAddress: Hex): Promise<Hex> {
         PAYMASTER_SIG_MAGIC
 
     ]) as Hex;
+
+    console.log("DEBUG: Stub paymaster data =", result);
+    console.log("DEBUG: Stub paymaster data length (bytes) =", (result.length - 2) / 2);
+
+    return result;
 }
 
 async function signUserOperationHash(paymasterAddress: Hex, userOp: UserOperation): Promise<Hex> {
@@ -148,7 +156,7 @@ async function getGasValues(userOp: UserOperation, chainId: string, bundlerUrl: 
             "params": [
                 {
                     "sender": userOp.sender,
-                    "nonce": toHex(userOp.nonce),
+                    "nonce": "0x0",  // Hardcoded to match working code
                     "initCode": userOp.factory,
                     "callData": userOp.callData,
                     "callGasLimit": toHex(userOp.callGasLimit || 0n),
@@ -345,6 +353,7 @@ const main = async (
     const gasValues = await getGasValues(userOp, chain.id.toString(), bundlerUrl, openfortAccount, entrypoint09Address);
 
     console.log("gasValues returned: ", gasValues);
+    console.log("DEBUG: verificationGasLimit from estimation =", gasValues.verificationGasLimit, "= decimal", parseInt(gasValues.verificationGasLimit, 16));
 
     userOp.callGasLimit = BigInt(gasValues.callGasLimit);
     userOp.verificationGasLimit = BigInt(gasValues.verificationGasLimit);
@@ -393,6 +402,7 @@ const main = async (
     ]) as Hex;
 
     packedUserOp = toPackedUserOperation(userOp);
+    packedUserOp.initCode = '0x7702';
 
     const paymasterhash = await bundlerClient.readContract({
         address: paymasterAddress,
@@ -411,8 +421,40 @@ const main = async (
     ]) as Hex;
 
     packedUserOp = toPackedUserOperation(userOp);
+    packedUserOp.initCode = '0x7702';
     console.log("Final UserOp: ", packedUserOp);
+
+    const sendUserOperation = await axios.post(
+        bundlerUrl,
+        {
+            'jsonrpc': '2.0',
+            'method': 'eth_sendUserOperation',
+            'params': [
+                {
+                    'sender': packedUserOp.sender,
+                    'nonce': packedUserOp.nonce,
+                    'initCode': packedUserOp.initCode,
+                    'callData': packedUserOp.callData,
+                    'callGasLimit': userOp.callGasLimit,
+                    'verificationGasLimit': userOp.verificationGasLimit,
+                    'preVerificationGas': userOp.preVerificationGas,
+                    'maxPriorityFeePerGas': userOp.maxPriorityFeePerGas,
+                    'maxFeePerGas': userOp.maxFeePerGas,
+                    'paymasterAndData': packedUserOp.paymasterAndData,
+                    'signature': packedUserOp.signature
+                }
+            ],
+            'id': bundlerClient.chain.id
+        },
+        {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    console.log("sendUserOperation response:: ", sendUserOperation.data);
 }
-    [{"sender":"0xcdeaa61c5956bfb99e06fb93d8241848dc091127","nonce":"18446744073709551624","initCode":"0x7702","callData":"0xe9ae5c530100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000a84e4f9d72cb37a8276090d3fc50895bd8e5aaf100000000000000000000000000000000000000000000000000000002540be40000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000","accountGasLimits":"0x0000000000000000000000000000f0910000000000000000000000000000659b","preVerificationGas":"53146","gasFees":"0x00000000000000000000000000100590000000000000000000000000001006cb","paymasterAndData":"0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a970000000000000000000000000000f0910000000000000000000000000000c3500100006b1bb37e0000000000003b03507b78fc0695e06d2b184437b42df343ca7dab958934ab7685d0f5ecc7f5184afdb4f91f15361e5c1361824b5462a91a607ef007c513b06377f4f1a7f2761c004122e325a297439656","signature":"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000041ce30bc7a9bbedab3db89601eb41d5355f897fed5d73c4337576c09293b0a88bc54fe70610dd1bc6b509d4194c78e10600639b7f1df787c6e707f81a7a6be328d1c00000000000000000000000000000000000000000000000000000000000000"}]
+// [{"sender":"0xcdeaa61c5956bfb99e06fb93d8241848dc091127","nonce":"18446744073709551624","initCode":"0x7702","callData":"0xe9ae5c530100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000a84e4f9d72cb37a8276090d3fc50895bd8e5aaf100000000000000000000000000000000000000000000000000000002540be40000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000","accountGasLimits":"0x00000000000000000000000000013dd00000000000000000000000000000659b","preVerificationGas":"53116","gasFees":"0x00000000000000000000000000100590000000000000000000000000001006cb","paymasterAndData":"0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a9700000000000000000000000000013dd00000000000000000000000000000c3500100006b1bb37e00000000000023df119f17e46eaf075e73e673d8046656fb08263973e79da671db7c4978c46c54b894c445b90ca02063a5b12a32ccd8ee05edfa8db5aaf8dcca810ec80bcf331b004122e325a297439656","signature":"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000041db501179980c8a0c44061ad22014694aa58d78caf5e3aeabb1a194980103608e53b9c28470644e0ba6fd7cfb3698c20c535ee87986633193d6b7910767aa2f391c00000000000000000000000000000000000000000000000000000000000000"}]
 
 main(optimismSepolia);
