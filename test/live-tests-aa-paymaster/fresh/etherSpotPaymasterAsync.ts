@@ -2,10 +2,12 @@ import createFreeBundler, { getFreeBundlerUrl } from "@etherspot/free-bundler";
 import {
     Chain,
     concat,
+    createWalletClient,
     decodeFunctionData,
     encodeAbiParameters,
     encodeFunctionData,
     Hex,
+    http,
     pad,
     parseUnits,
     publicActions,
@@ -371,6 +373,9 @@ const main = async (
 
     // console.log("Final UserOp: ", userOp);
     let packedUserOp = toPackedUserOperation(userOp);
+    // FIX: Remove viem padding BEFORE calculating hash! (use spread to handle immutability)
+    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
+    console.log("DEBUG: initCode after fix =", packedUserOp.initCode);
     // console.log("Final UserOp: ", packedUserOp);
 
     const userOpHash = await bundlerClient.readContract({
@@ -402,7 +407,7 @@ const main = async (
     ]) as Hex;
 
     packedUserOp = toPackedUserOperation(userOp);
-    packedUserOp.initCode = '0x7702';
+    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
 
     const paymasterhash = await bundlerClient.readContract({
         address: paymasterAddress,
@@ -421,39 +426,65 @@ const main = async (
     ]) as Hex;
 
     packedUserOp = toPackedUserOperation(userOp);
-    packedUserOp.initCode = '0x7702';
+    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
     console.log("Final UserOp: ", packedUserOp);
 
-    const sendUserOperation = await axios.post(
-        bundlerUrl,
-        {
-            'jsonrpc': '2.0',
-            'method': 'eth_sendUserOperation',
-            'params': [
-                {
-                    'sender': packedUserOp.sender,
-                    'nonce': packedUserOp.nonce,
-                    'initCode': packedUserOp.initCode,
-                    'callData': packedUserOp.callData,
-                    'callGasLimit': userOp.callGasLimit,
-                    'verificationGasLimit': userOp.verificationGasLimit,
-                    'preVerificationGas': userOp.preVerificationGas,
-                    'maxPriorityFeePerGas': userOp.maxPriorityFeePerGas,
-                    'maxFeePerGas': userOp.maxFeePerGas,
-                    'paymasterAndData': packedUserOp.paymasterAndData,
-                    'signature': packedUserOp.signature
-                }
-            ],
-            'id': bundlerClient.chain.id
-        },
-        {
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }
-    );
+    const sender = privateKeyToAccount(process.env.PAYMASTER_OWNER_PRIVATE_KEY! as Hex);
+    const senderWallet = createWalletClient({
+        chain,
+        account: sender,
+        transport: http(bundlerUrl),
+    });
 
-    console.log("sendUserOperation response:: ", sendUserOperation.data);
+    const txHash = await senderWallet.sendTransaction({
+        to: entrypoint09Address,
+        data: encodeFunctionData({
+            abi: entryPoint08Abi,
+            functionName: "handleOps",
+            args: [
+                [packedUserOp],
+                sender.address
+            ]
+        }),
+        chain
+    });
+
+    console.log("Transaction sent! Hash:", txHash);
+
+    console.log("Waiting for transaction to be mined...");
+    const receipt = await bundlerClient.waitForTransactionReceipt({ hash: txHash });
+    console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
+    console.log("Key registration successful! TX Hash:", txHash);
+    // // Send in PACKED v0.7+ format (convert BigInts to hex)
+    // const sendUserOperation = await axios.post(
+    //     bundlerUrl,
+    //     {
+    //         'jsonrpc': '2.0',
+    //         'method': 'eth_sendUserOperation',
+    //         'params': [
+    //             {
+    //                 'sender': packedUserOp.sender,
+    //                 'nonce': toHex(packedUserOp.nonce),
+    //                 'initCode': packedUserOp.initCode,
+    //                 'callData': packedUserOp.callData,
+    //                 'accountGasLimits': packedUserOp.accountGasLimits,
+    //                 'preVerificationGas': toHex(packedUserOp.preVerificationGas),
+    //                 'gasFees': packedUserOp.gasFees,
+    //                 'paymasterAndData': packedUserOp.paymasterAndData,
+    //                 'signature': packedUserOp.signature
+    //             },
+    //             entrypoint09Address
+    //         ],
+    //         'id': bundlerClient.chain.id
+    //     },
+    //     {
+    //         headers: {
+    //             'Content-Type': 'application/json'
+    //         }
+    //     }
+    // );
+
+    // console.log("sendUserOperation response:: ", sendUserOperation.data);
 }
 // [{"sender":"0xcdeaa61c5956bfb99e06fb93d8241848dc091127","nonce":"18446744073709551624","initCode":"0x7702","callData":"0xe9ae5c530100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000e0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000020000000000000000000000000a84e4f9d72cb37a8276090d3fc50895bd8e5aaf100000000000000000000000000000000000000000000000000000002540be40000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000000","accountGasLimits":"0x00000000000000000000000000013dd00000000000000000000000000000659b","preVerificationGas":"53116","gasFees":"0x00000000000000000000000000100590000000000000000000000000001006cb","paymasterAndData":"0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a9700000000000000000000000000013dd00000000000000000000000000000c3500100006b1bb37e00000000000023df119f17e46eaf075e73e673d8046656fb08263973e79da671db7c4978c46c54b894c445b90ca02063a5b12a32ccd8ee05edfa8db5aaf8dcca810ec80bcf331b004122e325a297439656","signature":"0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000041db501179980c8a0c44061ad22014694aa58d78caf5e3aeabb1a194980103608e53b9c28470644e0ba6fd7cfb3698c20c535ee87986633193d6b7910767aa2f391c00000000000000000000000000000000000000000000000000000000000000"}]
 
