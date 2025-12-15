@@ -23,11 +23,11 @@ import {
 import { privateKeyToAccount } from "viem/accounts";
 import { optimismSepolia } from "viem/chains";
 import dotenv from "dotenv";
-import { ABI_7702_ACCOUNT } from "../../src/data/abis";
+import { ABI_7702_ACCOUNT } from "../../../src/data/abis";
 import axios from 'axios';
-import { helpers } from "../../src/helpers/paymaster/paymasterData";
-import { getHash } from "../../src/helpers/paymaster/paymasterActions";
-import { addressBook } from "../../src/data/addressBook";
+import { helpers } from "../../../src/helpers/paymaster/paymasterData";
+import { getHash } from "../../../src/helpers/paymaster/paymasterActions";
+import { addressBook } from "../../../src/data/addressBook";
 
 dotenv.config();
 
