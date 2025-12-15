@@ -11,3 +11,8 @@ test/live-tests-aa-paymaster/PaymasterAsyncManualTest.ts:ethereum-private-key-he
 test/live-tests-aa-paymaster/PaymasterAsyncManualTest.ts:ethereum-private-key-hex:388
 test/live-tests-aa-paymaster/fresh/etherSpotPaymasterAsync.ts:ethereum-private-key-hex:458
 test/live-tests-aa-paymaster/fresh/etherSpotPaymasterAsync.ts:ethereum-private-key-hex:458
+test/live-tests-aa-paymaster/drafts/asyncVerifyingModeOnly.ts:ethereum-private-key-hex:86
+test/live-tests-aa-paymaster/drafts/etherSpotExampleApiCallsWithPaymasterAsync.ts:ethereum-private-key-hex:78
+test/live-tests-aa-paymaster/fresh/etherSpotPaymasterAsyncFull.ts:ethereum-private-key-hex:186
+test/live-tests-aa-paymaster/drafts/etherspotAsyncPaymaster.ts:ethereum-private-key-hex:189
+test/live-tests-aa-paymaster/drafts/PaymasterAsyncMode.ts:ethereum-private-key-hex:77
