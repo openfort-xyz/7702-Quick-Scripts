@@ -18,7 +18,7 @@ import {
 } from "viem/account-abstraction";
 import { getChainId, readContract } from "viem/actions";
 import { getAction, parseAbi } from "viem/utils";
-import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "../../../../../src/data/abis";
+import { ABI_7702_ACCOUNT } from "./abis";
 
 // =============================================================================
 // Constants
