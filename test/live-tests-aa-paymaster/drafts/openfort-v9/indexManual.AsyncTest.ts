@@ -1,5 +1,5 @@
 import "dotenv/config"
-import { createClient, defineChain, http, publicActions, walletActions, Hex, Address, pad, toHex, concat, encodeAbiParameters } from 'viem'
+import { createWalletClient, createClient, defineChain, http, publicActions, walletActions, Hex, Address, pad, toHex, concat, encodeAbiParameters, encodeFunctionData } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   createBundlerClient,
@@ -87,6 +87,16 @@ const account = await createOpenfortAccount({
 // Sign EIP-7702 authorization (delegates EOA to Openfort implementation)
 const authorization = await client.signAuthorization(account.authorization!)
 
+// Create wallet client for direct EntryPoint transaction
+const senderEOA = privateKeyToAccount(process.env.PAYMASTER_OWNER_PRIVATE_KEY! as Hex)
+const senderWallet = createWalletClient({
+  chain: chain,
+  account: senderEOA,
+  transport: http()
+}).extend(publicActions)
+
+console.log('Sender EOA for handleOps:', senderEOA.address)
+
 const bundlerClient = createBundlerClient({
   account,
   paymaster: paymasterClient,
@@ -124,6 +134,8 @@ const gasPrice = await client.estimateFeesPerGas()
 const maxFeePerGas = gasPrice.maxFeePerGas!
 const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas!
 
+// EIP-7702 Note: authorization is NOT part of UserOp - it's part of the transaction envelope
+// The bundler will handle the authorization separately when submitting the tx
 let userOp = {
   sender,
   nonce,
@@ -136,7 +148,7 @@ let userOp = {
   maxFeePerGas,
   maxPriorityFeePerGas,
   signature,
-  authorization, // EIP-7702 signed authorization
+  // NO authorization field - it's handled by bundler in transaction envelope
 }
 
 console.log('Initial UserOp:', {
@@ -258,8 +270,8 @@ userOp = {
   callGasLimit: BigInt(estimateResult.callGasLimit),
   verificationGasLimit: BigInt(estimateResult.verificationGasLimit),
   preVerificationGas: BigInt(estimateResult.preVerificationGas),
-  paymasterVerificationGasLimit: BigInt(estimateResult.paymasterVerificationGasLimit || 0),
-  paymasterPostOpGasLimit: BigInt(estimateResult.paymasterPostOpGasLimit || 0),
+  paymasterVerificationGasLimit: BigInt(estimateResult.verificationGasLimit),  // Use verificationGasLimit, not paymasterVerificationGasLimit
+  paymasterPostOpGasLimit: 50000n,  // Hardcoded value, not from estimation
 }
 
 console.log('\n=== Final UserOp (with gas estimates) ===')
@@ -288,23 +300,69 @@ userOp = {
   ]) as Hex,
 }
 
+// CRITICAL FIX: Remove authorization field before calling toPackedUserOperation
+// The authorization field is NOT part of PackedUserOperation struct and causes hash mismatch
+const userOpForHashing = {
+  sender: userOp.sender,
+  nonce: userOp.nonce,
+  factory: userOp.factory,
+  factoryData: userOp.factoryData,
+  callData: userOp.callData,
+  callGasLimit: userOp.callGasLimit,
+  verificationGasLimit: userOp.verificationGasLimit,
+  preVerificationGas: userOp.preVerificationGas,
+  maxFeePerGas: userOp.maxFeePerGas,
+  maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+  signature: userOp.signature,
+  paymaster: (userOp as any).paymaster,
+  paymasterData: (userOp as any).paymasterData,
+  paymasterVerificationGasLimit: (userOp as any).paymasterVerificationGasLimit,
+  paymasterPostOpGasLimit: (userOp as any).paymasterPostOpGasLimit,
+  // NO authorization field!
+}
+
 // Convert to PackedUserOperation for EntryPoint
-let packedUserOp = toPackedUserOperation(userOp)
+let packedUserOp = toPackedUserOperation(userOpForHashing)
 
 // CRITICAL: Fix initCode to exactly '0x7702' (viem pads it)
 packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
 
-console.log('Getting UserOpHash from EntryPoint...')
+// DEBUG: Log packed structure to verify correctness
+console.log('\n--- DEBUG: Packed UserOp Structure (Phase 1) ---')
+console.log('initCode:', packedUserOp.initCode, '(should be exactly 0x7702)')
+console.log('accountGasLimits:', packedUserOp.accountGasLimits)
+console.log('gasFees:', packedUserOp.gasFees)
+console.log('paymasterAndData length:', (packedUserOp.paymasterAndData.length - 2) / 2, 'bytes')
+console.log('paymasterAndData (first 66 chars):', packedUserOp.paymasterAndData.slice(0, 66) + '...')
+console.log('--- END DEBUG ---\n')
 
-// Get UserOpHash from EntryPoint
-const userOpHash = await client.readContract({
-  address: account.entryPoint.address as Address,
-  abi: entryPoint08Abi,
-  functionName: 'getUserOpHash',
-  args: [packedUserOp],
+console.log('Getting UserOpHash from EntryPoint with state override...')
+
+// CRITICAL: Use state override to simulate EIP-7702 delegation when getting hash
+// This makes the eth_call behave as if the sender has the delegated code
+const implementationAddress = "0x77020901f40BE88Df754E810dA9868933787652B"
+const userOpHash = await client.request({
+  method: "eth_call",
+  params: [
+    {
+      to: account.entryPoint.address,
+      data: encodeFunctionData({
+        abi: entryPoint08Abi,
+        functionName: "getUserOpHash",
+        args: [packedUserOp]
+      })
+    },
+    "latest",
+    {
+      [owner.address]: {
+        code: `0xef0100${implementationAddress.toLowerCase().substring(2)}`
+      }
+    }
+  ]
 }) as Hex
 
 console.log('UserOpHash:', userOpHash)
+console.log('Owner address:', owner.address)
 
 // Sign with owner account
 console.log('Signing with owner account...')
@@ -313,6 +371,15 @@ const rawUserOpSignature = await owner.sign({
 })
 
 console.log('Raw signature:', rawUserOpSignature)
+
+// DEBUG: Verify signature by recovering signer
+const { recoverAddress } = await import('viem')
+const recoveredAddress = await recoverAddress({
+  hash: userOpHash,
+  signature: rawUserOpSignature
+})
+console.log('Recovered signer address:', recoveredAddress)
+console.log('Signature verification:', recoveredAddress.toLowerCase() === owner.address.toLowerCase() ? '✓ MATCH' : '✗ MISMATCH')
 
 // Pack signature (mode 0 = ECDSA)
 const packedUserOpSignature = encodeAbiParameters(
@@ -344,8 +411,28 @@ userOp = {
   ]) as Hex,
 }
 
+// CRITICAL FIX: Remove authorization field before calling toPackedUserOperation
+const userOpForPaymasterHash = {
+  sender: userOp.sender,
+  nonce: userOp.nonce,
+  factory: userOp.factory,
+  factoryData: userOp.factoryData,
+  callData: userOp.callData,
+  callGasLimit: userOp.callGasLimit,
+  verificationGasLimit: userOp.verificationGasLimit,
+  preVerificationGas: userOp.preVerificationGas,
+  maxFeePerGas: userOp.maxFeePerGas,
+  maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+  signature: userOp.signature,
+  paymaster: (userOp as any).paymaster,
+  paymasterData: (userOp as any).paymasterData,
+  paymasterVerificationGasLimit: (userOp as any).paymasterVerificationGasLimit,
+  paymasterPostOpGasLimit: (userOp as any).paymasterPostOpGasLimit,
+  // NO authorization field!
+}
+
 // Convert to PackedUserOperation for Paymaster
-packedUserOp = toPackedUserOperation(userOp)
+packedUserOp = toPackedUserOperation(userOpForPaymasterHash)
 
 // CRITICAL: Fix initCode to exactly '0x7702' again!
 packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
@@ -384,39 +471,99 @@ userOp = {
   ]) as Hex,
 }
 
-console.log('Final paymasterData:', userOp.paymasterData.slice(0, 66) + '...')
-console.log('PaymasterData length:', (userOp.paymasterData.length - 2) / 2, 'bytes')  // Should be 88
+console.log('Final paymasterData:', (userOp as any).paymasterData.slice(0, 66) + '...')
+console.log('PaymasterData length:', ((userOp as any).paymasterData.length - 2) / 2, 'bytes')  // Should be 88
+
+// CRITICAL FIX: Remove authorization field before calling toPackedUserOperation
+const userOpForFinal = {
+  sender: userOp.sender,
+  nonce: userOp.nonce,
+  factory: userOp.factory,
+  factoryData: userOp.factoryData,
+  callData: userOp.callData,
+  callGasLimit: userOp.callGasLimit,
+  verificationGasLimit: userOp.verificationGasLimit,
+  preVerificationGas: userOp.preVerificationGas,
+  maxFeePerGas: userOp.maxFeePerGas,
+  maxPriorityFeePerGas: userOp.maxPriorityFeePerGas,
+  signature: userOp.signature,
+  paymaster: (userOp as any).paymaster,
+  paymasterData: (userOp as any).paymasterData,
+  paymasterVerificationGasLimit: (userOp as any).paymasterVerificationGasLimit,
+  paymasterPostOpGasLimit: (userOp as any).paymasterPostOpGasLimit,
+  // NO authorization field!
+}
 
 // Convert to PackedUserOperation final time
-packedUserOp = toPackedUserOperation(userOp)
+packedUserOp = toPackedUserOperation(userOpForFinal)
 
 // CRITICAL: Fix initCode one last time!
 packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
 
 
 console.log(packedUserOp)
-// Step 7: Send UserOperation
-console.log('\n=== Step 7: Sending UserOperation ===')
-console.log('\n=== Step 7: Sending UserOperation ===')
-console.log('\n=== Step 7: Sending UserOperation ===')
-// console.log(account.entryPoint.address);
 
-// console.log(userOp);
-// console.log(formatUserOpForBundler(userOp));
+// Step 7: Send UserOperation via direct handleOps call
+console.log('\n=== Step 7: Sending UserOperation via handleOps ===')
 
-const finalUserOpHash = await bundlerClient.request({
-  method: 'eth_sendUserOperation',
-  params: [
-    formatUserOpForBundler(userOp),
-    account.entryPoint.address
-  ],
+// Check if sender has enough balance for gas
+const senderBalance = await client.getBalance({
+  address: senderEOA.address
+})
+console.log('Sender balance:', senderBalance.toString(), 'wei')
+
+if (senderBalance === 0n) {
+  throw new Error('Sender EOA has no balance. Please fund it first.')
+}
+
+const txHash = await senderWallet.sendTransaction({
+  to: account.entryPoint.address,
+  data: encodeFunctionData({
+    abi: entryPoint08Abi,
+    functionName: "handleOps",
+    args: [
+      [packedUserOp],
+      senderEOA.address  // beneficiary address
+    ]
+  }),
+  chain
 })
 
-console.log('\n=== UserOperation Sent Successfully ===')
-console.log('UserOp Hash:', finalUserOpHash)
+console.log('Transaction sent! Hash:', txHash)
 
-// Wait for receipt
-console.log('\nWaiting for receipt...')
-const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
-console.log('UserOperationReceipt:', receipt)
-console.log('Transaction hash:', receipt.receipt.transactionHash)
+// Wait for transaction receipt
+console.log('\nWaiting for transaction to be mined...')
+const receipt = await senderWallet.waitForTransactionReceipt({ hash: txHash })
+console.log('Transaction Status:', receipt.status === 'success' ? 'SUCCESS' : 'FAILED')
+console.log('Gas Used:', receipt.gasUsed.toString())
+
+if (receipt.status === 'success') {
+  console.log('\n=== UserOperation Executed Successfully ===')
+  console.log('Transaction hash:', receipt.transactionHash)
+} else {
+  console.log('\n=== Transaction Failed ===')
+  console.log('Receipt:', receipt)
+}
+// console.log('\n=== Step 7: Sending UserOperation ===')
+// console.log('\n=== Step 7: Sending UserOperation ===')
+// // console.log(account.entryPoint.address);
+
+// // console.log(userOp);
+// // console.log(formatUserOpForBundler(userOp));
+
+// const finalUserOpHash = await bundlerClient.request({
+//   method: 'eth_sendUserOperation',
+//   params: [
+//     formatUserOpForBundler(userOp),
+//     account.entryPoint.address
+//   ],
+// })
+
+// console.log('\n=== UserOperation Sent Successfully ===')
+// console.log('UserOp Hash:', finalUserOpHash)
+
+// // Wait for receipt
+// console.log('\nWaiting for receipt...')
+// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
+// console.log('UserOperationReceipt:', receipt)
+// console.log('Transaction hash:', receipt.receipt.transactionHash)
