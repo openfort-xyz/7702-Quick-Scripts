@@ -4,6 +4,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   createBundlerClient,
   createPaymasterClient,
+  entryPoint08Abi,
   toPackedUserOperation,
 } from 'viem/account-abstraction'
 import { createOpenfortAccount } from "./openfort-simple";
@@ -298,31 +299,7 @@ console.log('Getting UserOpHash from EntryPoint...')
 // Get UserOpHash from EntryPoint
 const userOpHash = await client.readContract({
   address: account.entryPoint.address as Address,
-  abi: [
-    {
-      inputs: [
-        {
-          components: [
-            { name: 'sender', type: 'address' },
-            { name: 'nonce', type: 'uint256' },
-            { name: 'initCode', type: 'bytes' },
-            { name: 'callData', type: 'bytes' },
-            { name: 'accountGasLimits', type: 'bytes32' },
-            { name: 'preVerificationGas', type: 'uint256' },
-            { name: 'gasFees', type: 'bytes32' },
-            { name: 'paymasterAndData', type: 'bytes' },
-            { name: 'signature', type: 'bytes' }
-          ],
-          name: 'userOp',
-          type: 'tuple'
-        }
-      ],
-      name: 'getUserOpHash',
-      outputs: [{ type: 'bytes32' }],
-      stateMutability: 'view',
-      type: 'function',
-    },
-  ],
+  abi: entryPoint08Abi,
   functionName: 'getUserOpHash',
   args: [packedUserOp],
 }) as Hex
@@ -422,10 +399,10 @@ console.log(packedUserOp)
 console.log('\n=== Step 7: Sending UserOperation ===')
 console.log('\n=== Step 7: Sending UserOperation ===')
 console.log('\n=== Step 7: Sending UserOperation ===')
-console.log(account.entryPoint.address);
+// console.log(account.entryPoint.address);
 
-console.log(userOp);
-console.log(formatUserOpForBundler(userOp));
+// console.log(userOp);
+// console.log(formatUserOpForBundler(userOp));
 
 const finalUserOpHash = await bundlerClient.request({
   method: 'eth_sendUserOperation',
@@ -435,11 +412,11 @@ const finalUserOpHash = await bundlerClient.request({
   ],
 })
 
-// console.log('\n=== UserOperation Sent Successfully ===')
-// console.log('UserOp Hash:', finalUserOpHash)
+console.log('\n=== UserOperation Sent Successfully ===')
+console.log('UserOp Hash:', finalUserOpHash)
 
-// // Wait for receipt
-// console.log('\nWaiting for receipt...')
-// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
-// console.log('UserOperationReceipt:', receipt)
-// console.log('Transaction hash:', receipt.receipt.transactionHash)
+// Wait for receipt
+console.log('\nWaiting for receipt...')
+const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
+console.log('UserOperationReceipt:', receipt)
+console.log('Transaction hash:', receipt.receipt.transactionHash)
