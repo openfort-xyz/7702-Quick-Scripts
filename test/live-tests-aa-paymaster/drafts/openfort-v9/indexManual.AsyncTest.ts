@@ -1,11 +1,13 @@
 import "dotenv/config"
-import { createClient, defineChain, http, publicActions, walletActions, Hex, Address, pad, toHex, concat } from 'viem'
+import { createClient, defineChain, http, publicActions, walletActions, Hex, Address, pad, toHex, concat, encodeAbiParameters } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
   createBundlerClient,
   createPaymasterClient,
+  toPackedUserOperation,
 } from 'viem/account-abstraction'
 import { createOpenfortAccount } from "./openfort-simple";
+import { ABI_PAYMASTER_V3 } from "./openfort-simple/abis";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -63,7 +65,11 @@ const paymasterClient = createPaymasterClient({
 })
 // console.log(generatePrivateKey())
 
-const owner = privateKeyToAccount(process.env.OWNER_7702_PRIVATE_KEY! as Hex)
+const owner = privateKeyToAccount(process.env.OWNER_7702_PRIVATE_KEY! as Hex);
+const paymasterSigner = privateKeyToAccount(process.env.PAYMASTER_SIGNER_PRIVATE_KEY! as Hex);
+
+console.log("Paymaster Signer:", paymasterSigner.address);
+
 export const client = createClient({
   account: owner,
   chain: chain,
@@ -98,9 +104,9 @@ const bundlerClient = createBundlerClient({
 
 // Define the calls for the UserOperation
 const calls = [{
-  to: '0xcb98643b8786950F0461f3B0edf99D88F274574D' as const,
+  to: '0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1' as const,
   value: 0n,
-  data: "0x1234" as const,
+  data: "0x" as const,
 }]
 
 // Step 1: Build initial UserOperation
@@ -269,80 +275,171 @@ console.log({
   paymasterPostOpGasLimit: userOp.paymasterPostOpGasLimit?.toString(),
 })
 
-// // Step 4: Get Final Paymaster Data with Signature
-// console.log('\n=== Step 4: Getting Final Paymaster Data ===')
+// Step 4: Sign UserOperation Hash
+console.log('\n=== Step 4: Signing UserOperation Hash ===')
 
-// const paymasterDataResult = await paymasterClient.request({
-//   method: 'pm_getPaymasterData',
-//   params: [
-//     formatUserOpForPaymaster(userOp),
-//     account.entryPoint.address,
-//     `0x${chainId.toString(16)}`,
-//     { policyId: process.env.POLICY_ID! }
-//   ],
-// })
+// Phase 1 PaymasterData: mode + magic (21 bytes)
+userOp = {
+  ...userOp,
+  paymasterData: concat([
+    paymasterStubData,      // 13 bytes (reuse existing constant)
+    PAYMASTER_SIG_MAGIC     // 8 bytes
+  ]) as Hex,
+}
 
-// console.log('Final Paymaster Data:', {
-//   paymaster: paymasterDataResult.paymaster,
-//   paymasterData: paymasterDataResult.paymasterData?.slice(0, 66) + '...',
-//   paymasterVerificationGasLimit: paymasterDataResult.paymasterVerificationGasLimit,
-//   paymasterPostOpGasLimit: paymasterDataResult.paymasterPostOpGasLimit,
-// })
+// Convert to PackedUserOperation for EntryPoint
+let packedUserOp = toPackedUserOperation(userOp)
 
-// // Update UserOp with final paymaster data (includes signature)
-// userOp = {
-//   ...userOp,
-//   paymaster: paymasterDataResult.paymaster,
-//   paymasterData: paymasterDataResult.paymasterData,
-// }
+// CRITICAL: Fix initCode to exactly '0x7702' (viem pads it)
+packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
 
-// // Step 5: Sign UserOperation
-// console.log('\n=== Step 5: Signing UserOperation ===')
+console.log('Getting UserOpHash from EntryPoint...')
 
-// const userOpSignature = await account.signUserOperation(userOp)
+// Get UserOpHash from EntryPoint
+const userOpHash = await client.readContract({
+  address: account.entryPoint.address as Address,
+  abi: [
+    {
+      inputs: [
+        {
+          components: [
+            { name: 'sender', type: 'address' },
+            { name: 'nonce', type: 'uint256' },
+            { name: 'initCode', type: 'bytes' },
+            { name: 'callData', type: 'bytes' },
+            { name: 'accountGasLimits', type: 'bytes32' },
+            { name: 'preVerificationGas', type: 'uint256' },
+            { name: 'gasFees', type: 'bytes32' },
+            { name: 'paymasterAndData', type: 'bytes' },
+            { name: 'signature', type: 'bytes' }
+          ],
+          name: 'userOp',
+          type: 'tuple'
+        }
+      ],
+      name: 'getUserOpHash',
+      outputs: [{ type: 'bytes32' }],
+      stateMutability: 'view',
+      type: 'function',
+    },
+  ],
+  functionName: 'getUserOpHash',
+  args: [packedUserOp],
+}) as Hex
 
-// console.log('UserOp Signature:', userOpSignature.slice(0, 66) + '...')
+console.log('UserOpHash:', userOpHash)
 
-// // Update UserOp with real signature
-// userOp = {
-//   ...userOp,
-//   signature: userOpSignature,
-// }
+// Sign with owner account
+console.log('Signing with owner account...')
+const rawUserOpSignature = await owner.sign({
+  hash: userOpHash
+})
 
-// // Step 6: Send UserOperation
-// console.log('\n=== Step 6: Sending UserOperation ===')
+console.log('Raw signature:', rawUserOpSignature)
 
-// const userOpHash = await bundlerClient.request({
-//   method: 'eth_sendUserOperation',
-//   params: [
-//     formatUserOpForBundler(userOp),
-//     account.entryPoint.address
-//   ],
-// })
+// Pack signature (mode 0 = ECDSA)
+const packedUserOpSignature = encodeAbiParameters(
+  [
+    { type: 'uint256' },
+    { type: 'bytes' }
+  ],
+  [0n, rawUserOpSignature]
+)
+
+console.log('Packed signature:', packedUserOpSignature.slice(0, 66) + '...')
+
+// Update UserOp with real signature
+userOp = {
+  ...userOp,
+  signature: packedUserOpSignature,
+}
+
+// Step 5: Sign Paymaster Hash
+console.log('\n=== Step 5: Signing Paymaster Hash ===')
+
+// Phase 2 PaymasterData: mode + 0-marker + magic (23 bytes)
+userOp = {
+  ...userOp,
+  paymasterData: concat([
+    paymasterStubData,              // 13 bytes
+    pad(toHex(0), { size: 2 }),     // 2 bytes (0-length signature marker)
+    PAYMASTER_SIG_MAGIC             // 8 bytes
+  ]) as Hex,
+}
+
+// Convert to PackedUserOperation for Paymaster
+packedUserOp = toPackedUserOperation(userOp)
+
+// CRITICAL: Fix initCode to exactly '0x7702' again!
+packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
+
+console.log('Getting paymaster hash...')
+
+// Get hash from paymaster (mode 0 = verifying)
+const paymasterHash = await client.readContract({
+  address: paymasterAddress as Address,
+  abi: ABI_PAYMASTER_V3,
+  functionName: 'getHash',
+  args: [0, packedUserOp],  // mode 0 = VERIFYING_MODE
+}) as Hex
+
+console.log('Paymaster hash:', paymasterHash)
+
+// Sign with paymaster signer using signMessage (for raw hash)
+console.log('Signing with paymaster signer...')
+const paymasterRawSignature = await paymasterSigner.signMessage({
+  message: { raw: paymasterHash }
+})
+
+console.log('Paymaster signature:', paymasterRawSignature)
+
+// Step 6: Assemble Final PaymasterData
+console.log('\n=== Step 6: Assembling Final PaymasterData ===')
+
+// Phase 3 PaymasterData: mode + signature + sigLen + magic (88 bytes)
+userOp = {
+  ...userOp,
+  paymasterData: concat([
+    paymasterStubData,                    // 13 bytes
+    paymasterRawSignature,                // 65 bytes
+    pad(toHex(65), { size: 2 }),          // 2 bytes (signature length)
+    PAYMASTER_SIG_MAGIC                   // 8 bytes
+  ]) as Hex,
+}
+
+console.log('Final paymasterData:', userOp.paymasterData.slice(0, 66) + '...')
+console.log('PaymasterData length:', (userOp.paymasterData.length - 2) / 2, 'bytes')  // Should be 88
+
+// Convert to PackedUserOperation final time
+packedUserOp = toPackedUserOperation(userOp)
+
+// CRITICAL: Fix initCode one last time!
+packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
+
+
+console.log(packedUserOp)
+// Step 7: Send UserOperation
+console.log('\n=== Step 7: Sending UserOperation ===')
+console.log('\n=== Step 7: Sending UserOperation ===')
+console.log('\n=== Step 7: Sending UserOperation ===')
+console.log(account.entryPoint.address);
+
+console.log(userOp);
+console.log(formatUserOpForBundler(userOp));
+
+const finalUserOpHash = await bundlerClient.request({
+  method: 'eth_sendUserOperation',
+  params: [
+    formatUserOpForBundler(userOp),
+    account.entryPoint.address
+  ],
+})
 
 // console.log('\n=== UserOperation Sent Successfully ===')
-// console.log('UserOp Hash:', userOpHash)
+// console.log('UserOp Hash:', finalUserOpHash)
 
-// // Optional: Wait for receipt (commented out)
-// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash })
+// // Wait for receipt
+// console.log('\nWaiting for receipt...')
+// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
 // console.log('UserOperationReceipt:', receipt)
-
-// Dont touch this code below
-
-// const authorization = await client.signAuthorization(account.authorization!)
-
-// const hash = await bundlerClient.sendUserOperation({
-// 	account,
-// 	// authorization,
-// 	calls: [
-// 		{
-// 			to: '0xcb98643b8786950F0461f3B0edf99D88F274574D',
-// 			value: 0n,
-// 			data: "0x1234",
-// 		},
-
-// 	],
-// })
-
-// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash })
-// console.log('UserOperationReceipt:', receipt)
+// console.log('Transaction hash:', receipt.receipt.transactionHash)
