@@ -1,77 +1,99 @@
 import "dotenv/config"
-import { createClient, defineChain, http, publicActions, walletActions, Hex } from 'viem'
+import { createClient, defineChain, http, publicActions, walletActions, Hex, Address, pad, toHex, concat } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import {
-	createBundlerClient,
-	createPaymasterClient,
+  createBundlerClient,
+  createPaymasterClient,
 } from 'viem/account-abstraction'
 import { createOpenfortAccount } from "./openfort-simple";
 import dotenv from "dotenv";
 
 dotenv.config();
 
+const PAYMASTER_SIG_MAGIC = '0x22e325a297439656' as Hex;
+const dummyPaymasterSig = '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex;
+const sigLen = pad(toHex(dummyPaymasterSig.length), { size: 2 });
+const paymasterAddress = "0xDeAD9fee9D14BDe85D4A52e9D2a85E366d607a97";
+
+const VERIFYING_MODE = 0n;
+const MODE_AND_ALLOW_ALL_BUNDLERS_LENGTH = 1n;
+const mode = (VERIFYING_MODE << 1n) | MODE_AND_ALLOW_ALL_BUNDLERS_LENGTH;
+const modeHex = pad(toHex(mode), { size: 1 });
+const validUntilHex = pad(toHex(1796977534), { size: 6 });
+const validAfterHex = pad(toHex(0), { size: 6 });
+const paymasterStubData = concat([modeHex, validUntilHex, validAfterHex]) as Hex;
+
+// NEW format: Gas limits are separate fields, NOT in paymasterData
+const paymasterDataForEstamteGas = concat([
+    paymasterStubData,      // 13 bytes: mode + validUntil + validAfter
+    dummyPaymasterSig,      // 65 bytes
+    pad(toHex(65), { size: 2 }),                 // 2 bytes
+    PAYMASTER_SIG_MAGIC     // 8 bytes
+]) as Hex;
+// Total: 88 bytes
+
 const chain = defineChain({
-	id: 510531,
-	name: "Open Loot Testnet",
-	nativeCurrency: { name: "OpenLoot", symbol: "OL", decimals: 18 },
-	rpcUrls: {
-		default: {
-			http: ["https://open-loot.rpc.testnet.syndicate.io"],
-		},
-	},
-	blockExplorers: {
-		default: {
-			name: "Open Loot Testnet Explorer",
-			url: "https://open-loot.explorer.testnet.syndicate.io",
-		},
-	},
-	testnet: true,
+  id: 510531,
+  name: "Open Loot Testnet",
+  nativeCurrency: { name: "OpenLoot", symbol: "OL", decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ["https://open-loot.rpc.testnet.syndicate.io"],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: "Open Loot Testnet Explorer",
+      url: "https://open-loot.explorer.testnet.syndicate.io",
+    },
+  },
+  testnet: true,
 });
 
 
 
 const paymasterClient = createPaymasterClient({
-	transport: http(`https://api.openfort.io/rpc/510531`, {
-		fetchOptions: {
-			headers: {
-				'Authorization': `Bearer ${process.env.OPENFORT_API_KEY! as string}`,
-			},
-		},
-	}),
+  transport: http(`https://api.openfort.io/rpc/510531`, {
+    fetchOptions: {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENFORT_API_KEY! as string}`,
+      },
+    },
+  }),
 })
 // console.log(generatePrivateKey())
 
 const owner = privateKeyToAccount(process.env.OWNER_7702_PRIVATE_KEY! as Hex)
 export const client = createClient({
-	account: owner,
-	chain: chain,
-	transport: http()
+  account: owner,
+  chain: chain,
+  transport: http()
 })
-	.extend(publicActions)
-	.extend(walletActions)
+  .extend(publicActions)
+  .extend(walletActions)
 
 const account = await createOpenfortAccount({
-	client,
-	owner,
+  client,
+  owner,
 })
 
 // Sign EIP-7702 authorization (delegates EOA to Openfort implementation)
 const authorization = await client.signAuthorization(account.authorization!)
 
 const bundlerClient = createBundlerClient({
-	account,
-	paymaster: paymasterClient,
-	client,
-	paymasterContext: {
-		policyId: process.env.POLICY_ID! as string,
-	},
-	transport: http(`https://api.openfort.io/rpc/510531`, {
-		fetchOptions: {
-			headers: {
-				'Authorization': `Bearer ${process.env.OPENFORT_API_KEY! as string}`,
-			},
-		},
-	}),
+  account,
+  paymaster: paymasterClient,
+  client,
+  paymasterContext: {
+    policyId: process.env.POLICY_ID! as string,
+  },
+  transport: http(`https://api.openfort.io/rpc/510531`, {
+    fetchOptions: {
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENFORT_API_KEY! as string}`,
+      },
+    },
+  }),
 })
 
 // Define the calls for the UserOperation
@@ -187,30 +209,21 @@ const formatUserOpForBundler = (op: any) => {
   return formatted
 }
 
-const paymasterStubResult = await paymasterClient.request({
-  method: 'pm_getPaymasterStubData',
-  params: [
-    formatUserOpForPaymaster(userOp),
-    account.entryPoint.address,
-    `0x${chainId.toString(16)}`,
-    { policyId: process.env.POLICY_ID! }
-  ],
-})
-
+// Manual stub data construction (no API call)
 console.log('Paymaster Stub Data:', {
-  paymaster: paymasterStubResult.paymaster,
-  paymasterData: paymasterStubResult.paymasterData?.slice(0, 66) + '...',
-  paymasterVerificationGasLimit: paymasterStubResult.paymasterVerificationGasLimit,
-  paymasterPostOpGasLimit: paymasterStubResult.paymasterPostOpGasLimit,
+  paymaster: paymasterAddress,
+  paymasterData: paymasterDataForEstamteGas.slice(0, 66) + '...',
+  paymasterVerificationGasLimit: '400000',
+  paymasterPostOpGasLimit: '50000',
 })
 
 // Add paymaster fields to UserOp
 userOp = {
   ...userOp,
-  paymaster: paymasterStubResult.paymaster,
-  paymasterData: paymasterStubResult.paymasterData,
-  paymasterVerificationGasLimit: BigInt(paymasterStubResult.paymasterVerificationGasLimit || 0),
-  paymasterPostOpGasLimit: BigInt(paymasterStubResult.paymasterPostOpGasLimit || 0),
+  paymaster: paymasterAddress as Address,
+  paymasterData: paymasterDataForEstamteGas,
+  paymasterVerificationGasLimit: 400000n,
+  paymasterPostOpGasLimit: 50000n,
 }
 
 // Step 3: Estimate UserOperation Gas
@@ -256,63 +269,63 @@ console.log({
   paymasterPostOpGasLimit: userOp.paymasterPostOpGasLimit?.toString(),
 })
 
-// Step 4: Get Final Paymaster Data with Signature
-console.log('\n=== Step 4: Getting Final Paymaster Data ===')
+// // Step 4: Get Final Paymaster Data with Signature
+// console.log('\n=== Step 4: Getting Final Paymaster Data ===')
 
-const paymasterDataResult = await paymasterClient.request({
-  method: 'pm_getPaymasterData',
-  params: [
-    formatUserOpForPaymaster(userOp),
-    account.entryPoint.address,
-    `0x${chainId.toString(16)}`,
-    { policyId: process.env.POLICY_ID! }
-  ],
-})
+// const paymasterDataResult = await paymasterClient.request({
+//   method: 'pm_getPaymasterData',
+//   params: [
+//     formatUserOpForPaymaster(userOp),
+//     account.entryPoint.address,
+//     `0x${chainId.toString(16)}`,
+//     { policyId: process.env.POLICY_ID! }
+//   ],
+// })
 
-console.log('Final Paymaster Data:', {
-  paymaster: paymasterDataResult.paymaster,
-  paymasterData: paymasterDataResult.paymasterData?.slice(0, 66) + '...',
-  paymasterVerificationGasLimit: paymasterDataResult.paymasterVerificationGasLimit,
-  paymasterPostOpGasLimit: paymasterDataResult.paymasterPostOpGasLimit,
-})
+// console.log('Final Paymaster Data:', {
+//   paymaster: paymasterDataResult.paymaster,
+//   paymasterData: paymasterDataResult.paymasterData?.slice(0, 66) + '...',
+//   paymasterVerificationGasLimit: paymasterDataResult.paymasterVerificationGasLimit,
+//   paymasterPostOpGasLimit: paymasterDataResult.paymasterPostOpGasLimit,
+// })
 
-// Update UserOp with final paymaster data (includes signature)
-userOp = {
-  ...userOp,
-  paymaster: paymasterDataResult.paymaster,
-  paymasterData: paymasterDataResult.paymasterData,
-}
+// // Update UserOp with final paymaster data (includes signature)
+// userOp = {
+//   ...userOp,
+//   paymaster: paymasterDataResult.paymaster,
+//   paymasterData: paymasterDataResult.paymasterData,
+// }
 
-// Step 5: Sign UserOperation
-console.log('\n=== Step 5: Signing UserOperation ===')
+// // Step 5: Sign UserOperation
+// console.log('\n=== Step 5: Signing UserOperation ===')
 
-const userOpSignature = await account.signUserOperation(userOp)
+// const userOpSignature = await account.signUserOperation(userOp)
 
-console.log('UserOp Signature:', userOpSignature.slice(0, 66) + '...')
+// console.log('UserOp Signature:', userOpSignature.slice(0, 66) + '...')
 
-// Update UserOp with real signature
-userOp = {
-  ...userOp,
-  signature: userOpSignature,
-}
+// // Update UserOp with real signature
+// userOp = {
+//   ...userOp,
+//   signature: userOpSignature,
+// }
 
-// Step 6: Send UserOperation
-console.log('\n=== Step 6: Sending UserOperation ===')
+// // Step 6: Send UserOperation
+// console.log('\n=== Step 6: Sending UserOperation ===')
 
-const userOpHash = await bundlerClient.request({
-  method: 'eth_sendUserOperation',
-  params: [
-    formatUserOpForBundler(userOp),
-    account.entryPoint.address
-  ],
-})
+// const userOpHash = await bundlerClient.request({
+//   method: 'eth_sendUserOperation',
+//   params: [
+//     formatUserOpForBundler(userOp),
+//     account.entryPoint.address
+//   ],
+// })
 
-console.log('\n=== UserOperation Sent Successfully ===')
-console.log('UserOp Hash:', userOpHash)
+// console.log('\n=== UserOperation Sent Successfully ===')
+// console.log('UserOp Hash:', userOpHash)
 
-// Optional: Wait for receipt (commented out)
-const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash })
-console.log('UserOperationReceipt:', receipt)
+// // Optional: Wait for receipt (commented out)
+// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash })
+// console.log('UserOperationReceipt:', receipt)
 
 // Dont touch this code below
 

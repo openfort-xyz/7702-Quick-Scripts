@@ -352,109 +352,110 @@ const main = async (
 
     let userOp: UserOperation<'0.8'> = await getFreshUserOp(openfortAccount, call, gasFee, paymasterAddress);
 
-    const gasValues = await getGasValues(userOp, chain.id.toString(), bundlerUrl, openfortAccount, entrypoint09Address);
+    console.log(userOp);
+    // const gasValues = await getGasValues(userOp, chain.id.toString(), bundlerUrl, openfortAccount, entrypoint09Address);
 
-    console.log("gasValues returned: ", gasValues);
-    console.log("DEBUG: verificationGasLimit from estimation =", gasValues.verificationGasLimit, "= decimal", parseInt(gasValues.verificationGasLimit, 16));
+    // console.log("gasValues returned: ", gasValues);
+    // console.log("DEBUG: verificationGasLimit from estimation =", gasValues.verificationGasLimit, "= decimal", parseInt(gasValues.verificationGasLimit, 16));
 
-    userOp.callGasLimit = BigInt(gasValues.callGasLimit);
-    userOp.verificationGasLimit = BigInt(gasValues.verificationGasLimit);
-    userOp.preVerificationGas = BigInt(gasValues.preVerificationGas);
-    userOp.paymasterVerificationGasLimit = BigInt(gasValues.verificationGasLimit);
-    userOp.paymasterPostOpGasLimit = 50000n;
+    // userOp.callGasLimit = BigInt(gasValues.callGasLimit);
+    // userOp.verificationGasLimit = BigInt(gasValues.verificationGasLimit);
+    // userOp.preVerificationGas = BigInt(gasValues.preVerificationGas);
+    // userOp.paymasterVerificationGasLimit = BigInt(gasValues.verificationGasLimit);
+    // userOp.paymasterPostOpGasLimit = 50000n;
 
-    const paymasterModeAndValidity = await createVerifyingModePaymasterData(1796977534, 0);
+    // const paymasterModeAndValidity = await createVerifyingModePaymasterData(1796977534, 0);
 
-    userOp.paymaster = paymasterAddress;
-    userOp.paymasterData = concat([
-        paymasterModeAndValidity,
-        PAYMASTER_SIG_MAGIC
-    ]) as Hex;
+    // userOp.paymaster = paymasterAddress;
+    // userOp.paymasterData = concat([
+    //     paymasterModeAndValidity,
+    //     PAYMASTER_SIG_MAGIC
+    // ]) as Hex;
 
-    // console.log("Final UserOp: ", userOp);
-    let packedUserOp = toPackedUserOperation(userOp);
-    // FIX: Remove viem padding BEFORE calculating hash! (use spread to handle immutability)
-    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
-    console.log("DEBUG: initCode after fix =", packedUserOp.initCode);
+    // // console.log("Final UserOp: ", userOp);
+    // let packedUserOp = toPackedUserOperation(userOp);
+    // // FIX: Remove viem padding BEFORE calculating hash! (use spread to handle immutability)
+    // packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
+    // console.log("DEBUG: initCode after fix =", packedUserOp.initCode);
+    // // console.log("Final UserOp: ", packedUserOp);
+
+    // const userOpHash = await bundlerClient.readContract({
+    //     address: entrypoint09Address,
+    //     abi: entryPoint08Abi,
+    //     functionName: "getUserOpHash",
+    //     args: [packedUserOp],
+    // });
+
+    // console.log("userOpHash:: ", userOpHash);
+
+    // const rawUserOpSignature = await owner.sign({
+    //     hash: userOpHash as Hex
+    // })
+
+    // const sig = encodeAbiParameters(
+    //     [
+    //         { type: 'uint256' },
+    //         { type: 'bytes' }
+    //     ],
+    //     [0n, rawUserOpSignature]
+    // );
+    // userOp.signature = sig;
+
+    // userOp.paymasterData = concat([
+    //     paymasterModeAndValidity,
+    //     pad(toHex(0), { size: 2 }),
+    //     PAYMASTER_SIG_MAGIC
+    // ]) as Hex;
+
+    // packedUserOp = toPackedUserOperation(userOp);
+    // packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
+
+    // const paymasterhash = await bundlerClient.readContract({
+    //     address: paymasterAddress,
+    //     abi: ABI_PAYMASTER_V3,
+    //     functionName: "getHash",
+    //     args: [0, packedUserOp],
+    // });
+
+    // const paymasterRawSignature = await paymasterSigner.signMessage({ message: { raw: paymasterhash } });
+
+    // userOp.paymasterData = concat([
+    //     paymasterModeAndValidity,
+    //     paymasterRawSignature,
+    //     pad(toHex(65), { size: 2 }),
+    //     PAYMASTER_SIG_MAGIC
+    // ]) as Hex;
+
+    // packedUserOp = toPackedUserOperation(userOp);
+    // packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
     // console.log("Final UserOp: ", packedUserOp);
 
-    const userOpHash = await bundlerClient.readContract({
-        address: entrypoint09Address,
-        abi: entryPoint08Abi,
-        functionName: "getUserOpHash",
-        args: [packedUserOp],
-    });
+    // const sender = privateKeyToAccount(process.env.PAYMASTER_OWNER_PRIVATE_KEY! as Hex);
+    // const senderWallet = createWalletClient({
+    //     chain,
+    //     account: sender,
+    //     transport: http(bundlerUrl),
+    // });
 
-    console.log("userOpHash:: ", userOpHash);
+    // const txHash = await senderWallet.sendTransaction({
+    //     to: entrypoint09Address,
+    //     data: encodeFunctionData({
+    //         abi: entryPoint08Abi,
+    //         functionName: "handleOps",
+    //         args: [
+    //             [packedUserOp],
+    //             sender.address
+    //         ]
+    //     }),
+    //     chain
+    // });
 
-    const rawUserOpSignature = await owner.sign({
-        hash: userOpHash as Hex
-    })
+    // console.log("Transaction sent! Hash:", txHash);
 
-    const sig = encodeAbiParameters(
-        [
-            { type: 'uint256' },
-            { type: 'bytes' }
-        ],
-        [0n, rawUserOpSignature]
-    );
-    userOp.signature = sig;
-
-    userOp.paymasterData = concat([
-        paymasterModeAndValidity,
-        pad(toHex(0), { size: 2 }),
-        PAYMASTER_SIG_MAGIC
-    ]) as Hex;
-
-    packedUserOp = toPackedUserOperation(userOp);
-    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
-
-    const paymasterhash = await bundlerClient.readContract({
-        address: paymasterAddress,
-        abi: ABI_PAYMASTER_V3,
-        functionName: "getHash",
-        args: [0, packedUserOp],
-    });
-
-    const paymasterRawSignature = await paymasterSigner.signMessage({ message: { raw: paymasterhash } });
-
-    userOp.paymasterData = concat([
-        paymasterModeAndValidity,
-        paymasterRawSignature,
-        pad(toHex(65), { size: 2 }),
-        PAYMASTER_SIG_MAGIC
-    ]) as Hex;
-
-    packedUserOp = toPackedUserOperation(userOp);
-    packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex };
-    console.log("Final UserOp: ", packedUserOp);
-
-    const sender = privateKeyToAccount(process.env.PAYMASTER_OWNER_PRIVATE_KEY! as Hex);
-    const senderWallet = createWalletClient({
-        chain,
-        account: sender,
-        transport: http(bundlerUrl),
-    });
-
-    const txHash = await senderWallet.sendTransaction({
-        to: entrypoint09Address,
-        data: encodeFunctionData({
-            abi: entryPoint08Abi,
-            functionName: "handleOps",
-            args: [
-                [packedUserOp],
-                sender.address
-            ]
-        }),
-        chain
-    });
-
-    console.log("Transaction sent! Hash:", txHash);
-
-    console.log("Waiting for transaction to be mined...");
-    const receipt = await bundlerClient.waitForTransactionReceipt({ hash: txHash });
-    console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
-    console.log("Key registration successful! TX Hash:", txHash);
+    // console.log("Waiting for transaction to be mined...");
+    // const receipt = await bundlerClient.waitForTransactionReceipt({ hash: txHash });
+    // console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
+    // console.log("Key registration successful! TX Hash:", txHash);
     // // Send in PACKED v0.7+ format (convert BigInts to hex)
     // const sendUserOperation = await axios.post(
     //     bundlerUrl,
