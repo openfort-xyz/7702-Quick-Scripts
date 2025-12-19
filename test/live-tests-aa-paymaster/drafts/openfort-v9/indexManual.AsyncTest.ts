@@ -134,8 +134,6 @@ const gasPrice = await client.estimateFeesPerGas()
 const maxFeePerGas = gasPrice.maxFeePerGas!
 const maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas!
 
-// EIP-7702 Note: authorization is NOT part of UserOp - it's part of the transaction envelope
-// The bundler will handle the authorization separately when submitting the tx
 let userOp = {
   sender,
   nonce,
@@ -148,7 +146,6 @@ let userOp = {
   maxFeePerGas,
   maxPriorityFeePerGas,
   signature,
-  // NO authorization field - it's handled by bundler in transaction envelope
 }
 
 console.log('Initial UserOp:', {
@@ -166,7 +163,7 @@ console.log('\n=== Step 2: Getting Paymaster Stub Data ===')
 
 const chainId = await client.getChainId()
 
-// Format UserOp for Paymaster RPC (NEW format, NO eip7702Auth)
+// Format UserOp for Paymaster RPC
 const formatUserOpForPaymaster = (op: any) => {
   const formatted: any = {
     sender: op.sender,
@@ -191,13 +188,10 @@ const formatUserOpForPaymaster = (op: any) => {
   if (op.paymasterPostOpGasLimit) {
     formatted.paymasterPostOpGasLimit = `0x${op.paymasterPostOpGasLimit.toString(16)}`
   }
-
-  // NO eip7702Auth for paymaster calls!
-
   return formatted
 }
 
-// Format UserOp for Bundler RPC (NEW format, NO eip7702Auth - same as paymaster!)
+// Format UserOp for Bundler RPC
 const formatUserOpForBundler = (op: any) => {
   const formatted: any = {
     sender: op.sender,
@@ -222,8 +216,6 @@ const formatUserOpForBundler = (op: any) => {
   if (op.paymasterPostOpGasLimit) {
     formatted.paymasterPostOpGasLimit = `0x${op.paymasterPostOpGasLimit.toString(16)}`
   }
-
-  // NO eip7702Auth - Openfort doesn't want it in the UserOp!
 
   return formatted
 }
@@ -271,7 +263,7 @@ userOp = {
   verificationGasLimit: BigInt(estimateResult.verificationGasLimit),
   preVerificationGas: BigInt(estimateResult.preVerificationGas),
   paymasterVerificationGasLimit: BigInt(estimateResult.verificationGasLimit),  // Use verificationGasLimit, not paymasterVerificationGasLimit
-  paymasterPostOpGasLimit: 50000n,  // Hardcoded value, not from estimation
+  paymasterPostOpGasLimit: 50000n,
 }
 
 console.log('\n=== Final UserOp (with gas estimates) ===')
@@ -300,8 +292,6 @@ userOp = {
   ]) as Hex,
 }
 
-// CRITICAL FIX: Remove authorization field before calling toPackedUserOperation
-// The authorization field is NOT part of PackedUserOperation struct and causes hash mismatch
 const userOpForHashing = {
   sender: userOp.sender,
   nonce: userOp.nonce,
@@ -318,13 +308,11 @@ const userOpForHashing = {
   paymasterData: (userOp as any).paymasterData,
   paymasterVerificationGasLimit: (userOp as any).paymasterVerificationGasLimit,
   paymasterPostOpGasLimit: (userOp as any).paymasterPostOpGasLimit,
-  // NO authorization field!
 }
 
 // Convert to PackedUserOperation for EntryPoint
 let packedUserOp = toPackedUserOperation(userOpForHashing)
 
-// CRITICAL: Fix initCode to exactly '0x7702' (viem pads it)
 packedUserOp = { ...packedUserOp, initCode: '0x7702' as Hex }
 
 // DEBUG: Log packed structure to verify correctness
@@ -338,8 +326,6 @@ console.log('--- END DEBUG ---\n')
 
 console.log('Getting UserOpHash from EntryPoint with state override...')
 
-// CRITICAL: Use state override to simulate EIP-7702 delegation when getting hash
-// This makes the eth_call behave as if the sender has the delegated code
 const implementationAddress = "0x77020901f40BE88Df754E810dA9868933787652B"
 const userOpHash = await client.request({
   method: "eth_call",
@@ -411,7 +397,6 @@ userOp = {
   ]) as Hex,
 }
 
-// CRITICAL FIX: Remove authorization field before calling toPackedUserOperation
 const userOpForPaymasterHash = {
   sender: userOp.sender,
   nonce: userOp.nonce,
@@ -428,7 +413,6 @@ const userOpForPaymasterHash = {
   paymasterData: (userOp as any).paymasterData,
   paymasterVerificationGasLimit: (userOp as any).paymasterVerificationGasLimit,
   paymasterPostOpGasLimit: (userOp as any).paymasterPostOpGasLimit,
-  // NO authorization field!
 }
 
 // Convert to PackedUserOperation for Paymaster
@@ -506,64 +490,66 @@ console.log(packedUserOp)
 // Step 7: Send UserOperation via direct handleOps call
 console.log('\n=== Step 7: Sending UserOperation via handleOps ===')
 
-// Check if sender has enough balance for gas
-const senderBalance = await client.getBalance({
-  address: senderEOA.address
-})
-console.log('Sender balance:', senderBalance.toString(), 'wei')
+// // Check if sender has enough balance for gas
+// const senderBalance = await client.getBalance({
+//   address: senderEOA.address
+// })
+// console.log('Sender balance:', senderBalance.toString(), 'wei')
 
-if (senderBalance === 0n) {
-  throw new Error('Sender EOA has no balance. Please fund it first.')
-}
+// if (senderBalance === 0n) {
+//   throw new Error('Sender EOA has no balance. Please fund it first.')
+// }
 
-const txHash = await senderWallet.sendTransaction({
-  to: account.entryPoint.address,
-  data: encodeFunctionData({
-    abi: entryPoint08Abi,
-    functionName: "handleOps",
-    args: [
-      [packedUserOp],
-      senderEOA.address  // beneficiary address
-    ]
-  }),
-  chain
-})
-
-console.log('Transaction sent! Hash:', txHash)
-
-// Wait for transaction receipt
-console.log('\nWaiting for transaction to be mined...')
-const receipt = await senderWallet.waitForTransactionReceipt({ hash: txHash })
-console.log('Transaction Status:', receipt.status === 'success' ? 'SUCCESS' : 'FAILED')
-console.log('Gas Used:', receipt.gasUsed.toString())
-
-if (receipt.status === 'success') {
-  console.log('\n=== UserOperation Executed Successfully ===')
-  console.log('Transaction hash:', receipt.transactionHash)
-} else {
-  console.log('\n=== Transaction Failed ===')
-  console.log('Receipt:', receipt)
-}
-// console.log('\n=== Step 7: Sending UserOperation ===')
-// console.log('\n=== Step 7: Sending UserOperation ===')
-// // console.log(account.entryPoint.address);
-
-// // console.log(userOp);
-// // console.log(formatUserOpForBundler(userOp));
-
-// const finalUserOpHash = await bundlerClient.request({
-//   method: 'eth_sendUserOperation',
-//   params: [
-//     formatUserOpForBundler(userOp),
-//     account.entryPoint.address
-//   ],
+// const txHash = await senderWallet.sendTransaction({
+//   to: account.entryPoint.address,
+//   data: encodeFunctionData({
+//     abi: entryPoint08Abi,
+//     functionName: "handleOps",
+//     args: [
+//       [packedUserOp],
+//       senderEOA.address  // beneficiary address
+//     ]
+//   }),
+//   chain
 // })
 
-// console.log('\n=== UserOperation Sent Successfully ===')
-// console.log('UserOp Hash:', finalUserOpHash)
+// console.log('Transaction sent! Hash:', txHash)
 
-// // Wait for receipt
-// console.log('\nWaiting for receipt...')
-// const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
-// console.log('UserOperationReceipt:', receipt)
-// console.log('Transaction hash:', receipt.receipt.transactionHash)
+// // Wait for transaction receipt
+// console.log('\nWaiting for transaction to be mined...')
+// const receipt = await senderWallet.waitForTransactionReceipt({ hash: txHash })
+// console.log('Transaction Status:', receipt.status === 'success' ? 'SUCCESS' : 'FAILED')
+// console.log('Gas Used:', receipt.gasUsed.toString())
+
+// if (receipt.status === 'success') {
+//   console.log('\n=== UserOperation Executed Successfully ===')
+//   console.log('Transaction hash:', receipt.transactionHash)
+// } else {
+//   console.log('\n=== Transaction Failed ===')
+//   console.log('Receipt:', receipt)
+// }
+
+console.log('\n=== Step 7: Sending UserOperation ===')
+// console.log(account.entryPoint.address);
+
+// console.log(userOp);
+// console.log(formatUserOpForBundler(userOp));
+
+userOp.factory = '0x7702';
+
+const finalUserOpHash = await bundlerClient.request({
+  method: 'eth_sendUserOperation',
+  params: [
+    formatUserOpForBundler(userOp),
+    account.entryPoint.address
+  ],
+})
+
+console.log('\n=== UserOperation Sent Successfully ===')
+console.log('UserOp Hash:', finalUserOpHash)
+
+// Wait for receipt
+console.log('\nWaiting for receipt...')
+const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
+console.log('UserOperationReceipt:', receipt)
+console.log('Transaction hash:', receipt.receipt.transactionHash)

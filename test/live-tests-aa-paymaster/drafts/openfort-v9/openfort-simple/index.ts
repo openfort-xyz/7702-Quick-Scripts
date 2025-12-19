@@ -101,6 +101,7 @@ export async function createOpenfortAccount(config: OpenfortAccountConfig): Prom
         client,
         entryPoint,
         authorization: { address: OPENFORT_ADDRESS, account: localOwner },
+
         getFactoryArgs: async () => ({ factory: "0x7702" as Address, factoryData: "0x" as Hex }),
 
         async getAddress() {
