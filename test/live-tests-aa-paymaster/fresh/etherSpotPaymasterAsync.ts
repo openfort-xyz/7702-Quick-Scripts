@@ -352,6 +352,7 @@ const main = async (
 
     let userOp: UserOperation<'0.8'> = await getFreshUserOp(openfortAccount, call, gasFee, paymasterAddress);
 
+    console.log(userOp);
     const gasValues = await getGasValues(userOp, chain.id.toString(), bundlerUrl, openfortAccount, entrypoint09Address);
 
     console.log("gasValues returned: ", gasValues);
@@ -451,10 +452,10 @@ const main = async (
 
     console.log("Transaction sent! Hash:", txHash);
 
-    console.log("Waiting for transaction to be mined...");
-    const receipt = await bundlerClient.waitForTransactionReceipt({ hash: txHash });
-    console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
-    console.log("Key registration successful! TX Hash:", txHash);
+    // console.log("Waiting for transaction to be mined...");
+    // const receipt = await bundlerClient.waitForTransactionReceipt({ hash: txHash });
+    // console.log("Transaction Status:", receipt.status === "success" ? "SUCCESS" : "FAILED");
+    // console.log("Key registration successful! TX Hash:", txHash);
     // // Send in PACKED v0.7+ format (convert BigInts to hex)
     // const sendUserOperation = await axios.post(
     //     bundlerUrl,
