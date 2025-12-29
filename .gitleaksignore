@@ -19,3 +19,4 @@ test/live-tests-aa-paymaster/drafts/PaymasterAsyncMode.ts:ethereum-private-key-h
 test/live-tests-aa-paymaster/drafts/openfort-v9/openfort-simple/index.ts:ethereum-private-key-hex:34
 test/live-tests-aa-paymaster/drafts/simple-calibur-v9/calibur-simple/index.ts:ethereum-private-key-hex:32
 test/live-tests-aa-paymaster/drafts/openfort-v9/indexManual.Async.ts:ethereum-private-key-hex:154
+test/live-tests-aa-paymaster/drafts/openfort-v9/indexManualDirect.Async.ts:ethereum-private-key-hex:158
