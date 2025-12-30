@@ -19,18 +19,11 @@ import {
 import { getChainId, readContract } from "viem/actions";
 import { getAction, parseAbi } from "viem/utils";
 import { ABI_7702_ACCOUNT } from "./abis";
+import { KEY_TYPE } from "./interfaces";
 
 // =============================================================================
 // Constants
 // =============================================================================
-
-// Signer key type
-export enum KEY_TYPE {
-    EOA,
-    WEBAUTHN,
-    P256,
-    P256NONKEY
-}
 
 // Openfort v0.9 implementation
 const OPENFORT_ADDRESS = "0x77020901f40BE88Df754E810dA9868933787652B" as Address;
