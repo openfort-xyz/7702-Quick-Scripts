@@ -9,20 +9,20 @@ enum KEY_TYPE {
 }
 
 // Public key structure for P256 curve used in WebAuthn
-interface PubKey {
+interface IPubKey {
     x: Hex;
     y: Hex;
 }
 
 // Key structure containing all necessary key information
-interface Key {
-    pubKey: PubKey;
+interface IKey {
+    pubKey: IPubKey;
     eoaAddress: Address;
-
+    keyType: KEY_TYPE;
 }
 
 // KeyReg data structure containing permissions and limits
-interface KeyReg {
+interface IKeyReg {
     validUntil: number;
     validAfter: number;
     limit: number;
@@ -40,8 +40,8 @@ interface ISpendLimit {
 }
 
 // Key data structure containing permissions and limits
-interface KeyData {
-    pubKey: PubKey;
+interface IKeyData {
+    pubKey: IPubKey;
     isActive: boolean;
     validUntil: number;
     validAfter: number;
@@ -54,4 +54,4 @@ interface KeyData {
     ethLimit: bigint;
 }
 
-export { KEY_TYPE, PubKey, Key, KeyReg, ISpendLimit, KeyData };
+export { KEY_TYPE, IPubKey, IKey, IKeyReg, ISpendLimit, IKeyData };
