@@ -1,18 +1,18 @@
 import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
 import { createOpenfortAccount } from "./openfort7702"
-import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress } from "viem";
+import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress, Address, pad } from "viem";
 import { encodeAbiParameters, parseAbiParameters } from "viem";
 import { http, createClient, publicActions, walletActions } from "viem";
 import { OPEN_LOOT_CHAIN, OPEN_LOO_RPC_URL } from "./openfort7702/chainConstatnts";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
-import { formatUserOperationRequest, formatUserOperationGas } from "viem/account-abstraction";
+import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./openfort7702/interfaces";
 import { getAddress } from "../../src/data/addressBook";
 import { PaymasterData } from "./openfort7702/paymasterConstants";
+import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./openfort7702/abis";
 
 import "dotenv/config"
 import dotenv from "dotenv";
-import { ABI_7702_ACCOUNT } from "./openfort7702/abis";
 dotenv.config();
 
 // ------------------------------------------------------------------------------------
@@ -130,6 +130,100 @@ const main = async () => {
         ...userOp,
         ...formatUserOperationGas(estimateResult),
     }
+
+    // ------------------------------------------------------------------------------------
+    //
+    //                           Get UserOp Hash and Sign
+    //
+    // ------------------------------------------------------------------------------------
+
+    let userOpForAccount = { ...userOp };
+
+    userOpForAccount.paymasterData = concat([
+        PaymasterData.MODE,
+        PaymasterData.VALID_UNTIL,
+        PaymasterData.VALID_AFTER,
+        PaymasterData.PAYMASTER_SIG_MAGIC,
+    ]);
+
+    // Use account's built-in signing which correctly handles EIP-7702
+    const accountPackedSignature = await openfortAccount.signUserOperation(userOpForAccount);
+
+    userOp = {
+        ...userOp,
+        signature: accountPackedSignature
+    }
+
+    // ------------------------------------------------------------------------------------
+    //
+    //                           Get Paymaster Hash and Sign
+    //
+    // ------------------------------------------------------------------------------------
+
+    let userOpForPaymaster = { ...userOp };
+
+    // userOpForPaymaster.factory = "0x7702" as Address;
+    // userOpForPaymaster.factoryData = "0x" as Hex;
+
+    userOpForPaymaster.paymasterData = concat([
+        PaymasterData.MODE,
+        PaymasterData.VALID_UNTIL,
+        PaymasterData.VALID_AFTER,
+        pad(toHex(0), { size: 2 }),
+        PaymasterData.PAYMASTER_SIG_MAGIC,
+    ]);
+
+    // delete userOpForPaymaster.authorization;
+
+    // Get paymaster hash using readContract (no state override needed for paymaster)
+    const paymasterHash = await client.readContract({
+        address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
+        abi: ABI_PAYMASTER_V3,
+        functionName: 'getHash',
+        args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
+    });
+
+    const paymasterRawSignature = await paymasterSignerAccount.signMessage({
+        message: { raw: paymasterHash }
+    });
+
+    const paymasterData = concat([
+        PaymasterData.MODE,
+        PaymasterData.VALID_UNTIL,
+        PaymasterData.VALID_AFTER,
+    ]);
+
+
+    userOp = {
+        ...userOp,
+        paymasterData: concat([
+            paymasterData,
+            paymasterRawSignature,
+            PaymasterData.SIGNATURE_LENGTHS,
+            PaymasterData.PAYMASTER_SIG_MAGIC
+        ]),
+    }
+
+    // ------------------------------------------------------------------------------------
+    //
+    //                                Send User Operation
+    //
+    // ------------------------------------------------------------------------------------
+
+    // userOp = {...userOp, authorization};
+
+    const finalUserOpHash = await bundlerClient.request({
+        method: 'eth_sendUserOperation',
+        params: [
+            formatUserOperationRequest(userOp),
+            openfortAccount.entryPoint.address
+        ],
+    });
+
+    console.log('UserOp Hash:', finalUserOpHash)
+    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
+    console.log('UserOperationReceipt:', receipt)
+    console.log('Transaction hash:', receipt.receipt.transactionHash)
 }
 
 async function getInitCallData(openfortAccount: any, bundlerClient: any): Promise<Hex> {
@@ -140,6 +234,7 @@ async function getInitCallData(openfortAccount: any, bundlerClient: any): Promis
 
     const signature: Hex = await signEIP712(keyMaster, keyRegMaster, keySession, keyRegSession, initialGuardian, openfortAccount, bundlerClient);
 
+    console.log("signature", signature);
     const callData: Hex = encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "initialize",
@@ -302,13 +397,25 @@ async function signEIP712(
         ])
     );
 
+    console.log(digest);
     // Sign the digest using ownerAccount's EOA private key
-    const signature: Hex = await ownerAccount.signMessage({
-        message: { raw: digest }
-    });
+    const signature: Hex = await ownerAccount.sign({ hash: digest });
 
     return signature
 }
 
 // Call it immediately
 main().catch(console.error);
+
+
+/**
+❯ npx tsx test/live-test-openfort-7702/attacheAndInit7702.ts
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
+0xbb62315c7887e7e686113970fdd71ba365064139aef98b269e05b0bed34bafce
+signature 0xc5a494dd4e5da112b748590d63ebfc3a911c9b3789172b6ff262a15b623801f0503df37491b009692c0409bdc33ab77826ddb985e8c2ea7ed9b987f1af8c45d21c
+
+❯ npx tsx test/live-test-openfort-7702/attacheAndInit7702Test.ts
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+📝 Digest from DELEGATED EOA context: 0xbb62315c7887e7e686113970fdd71ba365064139aef98b269e05b0bed34bafce
+📝 Signature: 0x584db687588bb297c25fa38f9f3080caf5b083ff9010aa6aca1efccd24066fe028dc23a04bed2160e79966dc5489c8a204ffb85f053186113e40efd84655aec31c
+ */
