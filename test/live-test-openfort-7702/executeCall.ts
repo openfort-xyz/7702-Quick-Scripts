@@ -1,15 +1,12 @@
-import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
+import { concat, Hex } from "viem";
 import { createOpenfortAccount } from "./openfort7702"
-import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress, Address, pad } from "viem";
-import { encodeAbiParameters, parseAbiParameters } from "viem";
-import { http, createClient, publicActions, walletActions } from "viem";
-import { OPEN_LOOT_CHAIN, OPEN_LOO_RPC_URL } from "./openfort7702/chainConstatnts";
-import { createBundlerClient, UserOperation } from "viem/account-abstraction";
-import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
-import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./openfort7702/interfaces";
-import { getAddress } from "../../src/data/addressBook";
+import { ABI_PAYMASTER_V3 } from "./openfort7702/abis";
+import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
 import { PaymasterData } from "./openfort7702/paymasterConstants";
-import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./openfort7702/abis";
+import { http, createClient, publicActions, walletActions } from "viem";
+import { createBundlerClient, UserOperation } from "viem/account-abstraction";
+import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
+import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
 import dotenv from "dotenv";
