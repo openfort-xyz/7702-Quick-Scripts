@@ -65,6 +65,7 @@ const main = async () => {
             },
         }),
     });
+
     // ------------------------------------------------------------------------------------
     //
     //                               Create UserOperation
@@ -162,9 +163,6 @@ const main = async () => {
 
     let userOpForPaymaster = { ...userOp };
 
-    // userOpForPaymaster.factory = "0x7702" as Address;
-    // userOpForPaymaster.factoryData = "0x" as Hex;
-
     userOpForPaymaster.paymasterData = concat([
         PaymasterData.MODE,
         PaymasterData.VALID_UNTIL,
@@ -173,7 +171,6 @@ const main = async () => {
         PaymasterData.PAYMASTER_SIG_MAGIC,
     ]);
 
-    // delete userOpForPaymaster.authorization;
 
     // Get paymaster hash using readContract (no state override needed for paymaster)
     const paymasterHash = await client.readContract({
@@ -210,8 +207,6 @@ const main = async () => {
     //
     // ------------------------------------------------------------------------------------
 
-    // userOp = {...userOp, authorization};
-
     const finalUserOpHash = await bundlerClient.request({
         method: 'eth_sendUserOperation',
         params: [
@@ -220,7 +215,6 @@ const main = async () => {
         ],
     });
 
-    console.log('UserOp Hash:', finalUserOpHash)
     const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
     console.log('UserOperationReceipt:', receipt)
     console.log('Transaction hash:', receipt.receipt.transactionHash)
@@ -234,7 +228,6 @@ async function getInitCallData(openfortAccount: any, bundlerClient: any): Promis
 
     const signature: Hex = await signEIP712(keyMaster, keyRegMaster, keySession, keyRegSession, initialGuardian, openfortAccount, bundlerClient);
 
-    console.log("signature", signature);
     const callData: Hex = encodeFunctionData({
         abi: ABI_7702_ACCOUNT,
         functionName: "initialize",
@@ -243,6 +236,12 @@ async function getInitCallData(openfortAccount: any, bundlerClient: any): Promis
 
     return callData;
 }
+
+// ------------------------------------------------------------------------------------
+//
+//                                  Master Key Data
+//
+// ------------------------------------------------------------------------------------
 
 async function getMasterKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
     const pubKey: IPubKey = {
@@ -267,6 +266,12 @@ async function getMasterKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
     return { key, keyReg };
 }
 
+// ------------------------------------------------------------------------------------
+//
+//                                  Session Key Data
+//
+// ------------------------------------------------------------------------------------
+
 async function getSessionKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
     const pubKey: IPubKey = {
         x: "0xc56cdb80cb80d45f8fd7f4bc7f001166b62c55d643f59fc3e2505d1c9db7ecf2", // keccak256("x.sessionKey")
@@ -290,6 +295,11 @@ async function getSessionKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
     return { key, keyReg };
 }
 
+// ------------------------------------------------------------------------------------
+//
+//                        Create And Sign EIP712 for Initialize
+//
+// ------------------------------------------------------------------------------------
 
 async function signEIP712(
     keyMaster: IKey,
@@ -300,6 +310,12 @@ async function signEIP712(
     openfortAccount: any,
     bundlerClient: any,
 ): Promise<Hex> {
+
+    // ------------------------------------------------------------------------------------
+    //
+    //                                  Concat Keys Data
+    //
+    // ------------------------------------------------------------------------------------
 
     // Encode master key
     const keyEncMaster: Hex = encodeAbiParameters(
@@ -354,6 +370,12 @@ async function signEIP712(
         ]
     );
 
+    // ------------------------------------------------------------------------------------
+    //
+    //                                   Concat All
+    //
+    // ------------------------------------------------------------------------------------
+
     // Calculate struct hash
     const structHash = keccak256(
         encodeAbiParameters(
@@ -368,6 +390,12 @@ async function signEIP712(
             ]
         )
     );
+
+    // ------------------------------------------------------------------------------------
+    //
+    //                                   Create Hash
+    //
+    // ------------------------------------------------------------------------------------
 
     // EIP-712 Domain Type Hash
     const TYPE_HASH = keccak256(
@@ -397,7 +425,6 @@ async function signEIP712(
         ])
     );
 
-    console.log(digest);
     // Sign the digest using ownerAccount's EOA private key
     const signature: Hex = await ownerAccount.sign({ hash: digest });
 
@@ -406,16 +433,3 @@ async function signEIP712(
 
 // Call it immediately
 main().catch(console.error);
-
-
-/**
-❯ npx tsx test/live-test-openfort-7702/attacheAndInit7702.ts
-[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  suppress all logs with { quiet: true }
-0xbb62315c7887e7e686113970fdd71ba365064139aef98b269e05b0bed34bafce
-signature 0xc5a494dd4e5da112b748590d63ebfc3a911c9b3789172b6ff262a15b623801f0503df37491b009692c0409bdc33ab77826ddb985e8c2ea7ed9b987f1af8c45d21c
-
-❯ npx tsx test/live-test-openfort-7702/attacheAndInit7702Test.ts
-[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
-📝 Digest from DELEGATED EOA context: 0xbb62315c7887e7e686113970fdd71ba365064139aef98b269e05b0bed34bafce
-📝 Signature: 0x584db687588bb297c25fa38f9f3080caf5b083ff9010aa6aca1efccd24066fe028dc23a04bed2160e79966dc5489c8a204ffb85f053186113e40efd84655aec31c
- */
