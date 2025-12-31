@@ -164,8 +164,6 @@ const main = async () => {
         PaymasterData.MODE,
         PaymasterData.VALID_UNTIL,
         PaymasterData.VALID_AFTER,
-        pad(toHex(0), { size: 2 }),
-        PaymasterData.PAYMASTER_SIG_MAGIC,
     ]);
 
 
