@@ -134,69 +134,57 @@ const main = async () => {
 
     // ------------------------------------------------------------------------------------
     //
-    //                           Get UserOp Hash and Sign
+    //                    Sign UserOp and Paymaster in Parallel
     //
     // ------------------------------------------------------------------------------------
 
-    let userOpForAccount = { ...userOp };
+    const [accountSignature, paymasterSignature] = await Promise.all([
+        // Account signing task
+        (async () => {
+            const userOpForAccount = { ...userOp };
+            userOpForAccount.paymasterData = concat([
+                PaymasterData.MODE,
+                PaymasterData.VALID_UNTIL,
+                PaymasterData.VALID_AFTER,
+                PaymasterData.PAYMASTER_SIG_MAGIC,
+            ]);
+            return await openfortAccount.signUserOperation(userOpForAccount);
+        })(),
 
-    userOpForAccount.paymasterData = concat([
-        PaymasterData.MODE,
-        PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER,
-        PaymasterData.PAYMASTER_SIG_MAGIC,
+        // Paymaster signing task
+        (async () => {
+            const userOpForPaymaster = { ...userOp };
+            userOpForPaymaster.paymasterData = concat([
+                PaymasterData.MODE,
+                PaymasterData.VALID_UNTIL,
+                PaymasterData.VALID_AFTER,
+            ]);
+
+            const paymasterHash = await client.readContract({
+                address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
+                abi: ABI_PAYMASTER_V3,
+                functionName: 'getHash',
+                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
+            });
+
+            return await paymasterSignerAccount.signMessage({
+                message: { raw: paymasterHash }
+            });
+        })()
     ]);
 
-    // Use account's built-in signing which correctly handles EIP-7702
-    const accountPackedSignature = await openfortAccount.signUserOperation(userOpForAccount);
-
+    // Combine both signatures
     userOp = {
         ...userOp,
-        signature: accountPackedSignature
-    }
-
-    // ------------------------------------------------------------------------------------
-    //
-    //                           Get Paymaster Hash and Sign
-    //
-    // ------------------------------------------------------------------------------------
-
-    let userOpForPaymaster = { ...userOp };
-
-    userOpForPaymaster.paymasterData = concat([
-        PaymasterData.MODE,
-        PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER,
-    ]);
-
-
-    // Get paymaster hash using readContract (no state override needed for paymaster)
-    const paymasterHash = await client.readContract({
-        address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
-        abi: ABI_PAYMASTER_V3,
-        functionName: 'getHash',
-        args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
-    });
-
-    const paymasterRawSignature = await paymasterSignerAccount.signMessage({
-        message: { raw: paymasterHash }
-    });
-
-    const paymasterData = concat([
-        PaymasterData.MODE,
-        PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER,
-    ]);
-
-
-    userOp = {
-        ...userOp,
+        signature: accountSignature,
         paymasterData: concat([
-            paymasterData,
-            paymasterRawSignature,
+            PaymasterData.MODE,
+            PaymasterData.VALID_UNTIL,
+            PaymasterData.VALID_AFTER,
+            paymasterSignature,
             PaymasterData.SIGNATURE_LENGTHS,
             PaymasterData.PAYMASTER_SIG_MAGIC
-        ]),
+        ])
     }
 
     // ------------------------------------------------------------------------------------
