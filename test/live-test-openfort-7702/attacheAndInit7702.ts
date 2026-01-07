@@ -78,7 +78,7 @@ const main = async () => {
     // Get gas price from bundler
     const gasPrice = await client.estimateFeesPerGas()
 
-    let userOp: UserOperation<'0.8'> = {
+    let userOp: UserOperation<'0.9'> = {
         sender: await openfortAccount.getAddress(),
         nonce: await openfortAccount.getNonce(),
         callData: await getInitCallData(openfortAccount, bundlerClient),
@@ -231,8 +231,8 @@ async function getInitCallData(openfortAccount: any, bundlerClient: any): Promis
 
 async function getMasterKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
     const pubKey: IPubKey = {
-        x: "0x62403793637231872a2b213600830613b6784ffc1e427a49139a9532b45fdd9b", // keccak256("x.masterKey")
-        y: "0x617568695634f77c1f2536910bbe5ac5190fefd2ac1bc0ce449b60fc07aa832d" // keccak256("y.masterKey")
+        x: "0x8b945dc1f4a3877208944e8244fde736be9b002c5468695f54604b2cf749ed67", // keccak256("x.masterKey")
+        y: "0x0ffbdcfccab58d8d4f9b34699095bf67aca0cf02e9607e0be2029f2f2fece140" // keccak256("y.masterKey")
     };
     const key: IKey = { pubKey: pubKey, eoaAddress: zeroAddress, keyType: KEY_TYPE.WEBAUTHN };
 
@@ -251,6 +251,12 @@ async function getMasterKey(): Promise<{ key: IKey; keyReg: IKeyReg }> {
 
     return { key, keyReg };
 }
+/**
+{
+    "x": "0x8b945dc1f4a3877208944e8244fde736be9b002c5468695f54604b2cf749ed67",
+    "y": "0x0ffbdcfccab58d8d4f9b34699095bf67aca0cf02e9607e0be2029f2f2fece140"
+}
+ */
 
 // ------------------------------------------------------------------------------------
 //

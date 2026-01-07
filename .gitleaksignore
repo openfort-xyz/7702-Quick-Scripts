@@ -41,3 +41,7 @@ test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-he
 test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:259
 test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:258
 test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:25
+test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:234
+test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:235
+test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:256
+test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:257
