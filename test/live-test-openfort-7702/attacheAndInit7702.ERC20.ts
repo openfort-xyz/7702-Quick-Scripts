@@ -1,13 +1,13 @@
 import { createOpenfortAccount } from "./openfort7702"
 import { getAddress } from "../../src/data/addressBook";
-import { encodeAbiParameters, parseAbiParameters } from "viem";
 import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
 import { PaymasterData } from "./openfort7702/paymasterConstants";
+import { encodeAbiParameters, erc20Abi, parseAbiParameters } from "viem";
 import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./openfort7702/abis";
 import { http, createClient, publicActions, walletActions, pad } from "viem";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
 import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
-import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress} from "viem";
+import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress } from "viem";
 import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./openfort7702/interfaces";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
@@ -78,10 +78,30 @@ const main = async () => {
     // Get gas price from bundler
     const gasPrice = await client.estimateFeesPerGas()
 
+    const calls = [
+        {
+            to: PaymasterData.ERC20_ADDRESS,
+            value: 0n,
+            data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: 'approve',
+                args: [
+                    PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
+                    115792089237316195423570985008687907853269984665640564039457584007913129639935n
+                ]
+            }),
+        },
+        {
+            to: openfortAccount.address,
+            value: 0n,
+            data: await getInitCallData(openfortAccount, bundlerClient),
+        }
+    ];
+
     let userOp: UserOperation<'0.8'> = {
         sender: await openfortAccount.getAddress(),
         nonce: await openfortAccount.getNonce(),
-        callData: await getInitCallData(openfortAccount, bundlerClient),
+        callData: await openfortAccount.encodeCalls(calls),
         callGasLimit: 0n,
         verificationGasLimit: 0n,
         preVerificationGas: 0n,
