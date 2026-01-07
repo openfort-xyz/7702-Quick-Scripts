@@ -30,3 +30,7 @@ test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:419
 test/live-test-openfort-7702/attacheAndInit7702.ts:ethereum-private-key-hex:414
 test/live-test-openfort-7702/registerKey.ts:ethereum-private-key-hex:241
 test/live-test-openfort-7702/registerKey.ts:ethereum-private-key-hex:242
+test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:250
+test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:249
+test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:242
+test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:241
