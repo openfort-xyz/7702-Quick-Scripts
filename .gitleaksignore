@@ -34,3 +34,10 @@ test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:250
 test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:249
 test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:242
 test/live-test-openfort-7702/executeCallWebAuthn.ts:ethereum-private-key-hex:241
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:294
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:293
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:281
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:280
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:259
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:258
+test/live-test-openfort-7702/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:25
