@@ -1,11 +1,11 @@
 import { concat, Hex } from "viem";
-import { createOpenfortAccount } from "./../openfort7702"
-import { ABI_PAYMASTER_V3 } from "./../openfort7702/abis";
-import { OPEN_LOOT_CHAIN } from "./../openfort7702/chainConstatnts";
-import { PaymasterData } from "./../openfort7702/paymasterConstants";
+import { optimismSepolia } from "viem/chains";
+import { createOpenfortAccount } from "../../openfort7702"
+import { ABI_PAYMASTER_V3 } from "../../openfort7702/abis";
+import { PaymasterData } from "../../openfort7702/paymasterConstants";
 import { http, createClient, publicActions, walletActions } from "viem";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
-import { privateKeyToAccount } from "viem/accounts";
+import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
@@ -27,7 +27,7 @@ const paymasterSignerAccount = privateKeyToAccount(process.env.PAYMASTER_SIGNER_
 // Create Client
 const client = createClient({
     account: ownerAccount,
-    chain: OPEN_LOOT_CHAIN,
+    chain: optimismSepolia,
     transport: http()
 })
     .extend(publicActions)
@@ -86,7 +86,6 @@ const main = async () => {
         maxFeePerGas: gasPrice.maxFeePerGas,
         maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         signature: await openfortAccount.getStubSignature(),
-        // authorization,
     }
 
     // ------------------------------------------------------------------------------------
