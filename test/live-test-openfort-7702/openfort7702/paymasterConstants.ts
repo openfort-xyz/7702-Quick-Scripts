@@ -5,7 +5,7 @@ export const PaymasterData = {
     ERC20_ADDRESS: '0x000e4C20CCC59A2221A5B2E41aD56F4F22eF2202' as Address,
 
     // Exchange Rate
-    EXCHANGE_RATE: BigInt(30e18),
+    EXCHANGE_RATE: BigInt(3000e18),
 
     // Treasury
     TREASURY: '0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1' as Address,

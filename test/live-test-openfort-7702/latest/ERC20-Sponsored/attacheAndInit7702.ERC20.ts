@@ -1,14 +1,14 @@
-import { createOpenfortAccount } from "./openfort7702"
-import { getAddress } from "../../src/data/addressBook";
-import { encodeAbiParameters, parseAbiParameters } from "viem";
-import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
-import { PaymasterData } from "./openfort7702/paymasterConstants";
-import { http, createClient, publicActions, walletActions } from "viem";
-import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./openfort7702/abis";
+import { optimismSepolia } from "viem/chains";
+import { createOpenfortAccount } from "./../../openfort7702"
+import { getAddress } from "../../../../src/data/addressBook";
+import { PaymasterData } from "./../../openfort7702/paymasterConstants";
+import { encodeAbiParameters, erc20Abi, parseAbiParameters } from "viem";
+import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./../../openfort7702/abis";
+import { http, createClient, publicActions, walletActions, pad } from "viem";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
 import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
-import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress} from "viem";
-import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./openfort7702/interfaces";
+import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress } from "viem";
+import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./../../openfort7702/interfaces";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
@@ -33,7 +33,7 @@ const paymasterSignerAccount = privateKeyToAccount(process.env.PAYMASTER_SIGNER_
 // Create Client
 const client = createClient({
     account: ownerAccount,
-    chain: OPEN_LOOT_CHAIN,
+    chain: optimismSepolia,
     transport: http()
 })
     .extend(publicActions)
@@ -78,10 +78,30 @@ const main = async () => {
     // Get gas price from bundler
     const gasPrice = await client.estimateFeesPerGas()
 
+    const calls = [
+        {
+            to: PaymasterData.ERC20_ADDRESS,
+            value: 0n,
+            data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: 'approve',
+                args: [
+                    PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
+                    115792089237316195423570985008687907853269984665640564039457584007913129639935n
+                ]
+            }),
+        },
+        {
+            to: openfortAccount.address,
+            value: 0n,
+            data: await getInitCallData(openfortAccount, bundlerClient),
+        }
+    ];
+
     let userOp: UserOperation<'0.9'> = {
         sender: await openfortAccount.getAddress(),
         nonce: await openfortAccount.getNonce(),
-        callData: await getInitCallData(openfortAccount, bundlerClient),
+        callData: await openfortAccount.encodeCalls(calls),
         callGasLimit: 0n,
         verificationGasLimit: 0n,
         preVerificationGas: 0n,
@@ -98,18 +118,22 @@ const main = async () => {
     // ------------------------------------------------------------------------------------
 
     const paymasterStubData = concat([
-        PaymasterData.MODE,
+        PaymasterData.MODE_ERC20,
+        PaymasterData.COMBINED_BYTE_BASIC,
         PaymasterData.VALID_UNTIL,
         PaymasterData.VALID_AFTER,
-        PaymasterData.DUMMY_PAYMASTER_SIGNATURE,
-        PaymasterData.SIGNATURE_LENGTHS,
-        PaymasterData.PAYMASTER_SIG_MAGIC,
+        PaymasterData.ERC20_ADDRESS,
+        pad(toHex(PaymasterData.POST_GAS_LIMIT), { size: 16 }),
+        pad(toHex(BigInt(PaymasterData.EXCHANGE_RATE)), { size: 32 }),
+        pad(toHex(PaymasterData.PAYMASTER_VALIDATION_GAS_LIMIT), { size: 16 }),
+        PaymasterData.TREASURY,
     ]);
 
     userOp = {
         ...userOp,
         paymaster: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
         paymasterData: paymasterStubData,
+        paymasterSignature: PaymasterData.DUMMY_PAYMASTER_SIGNATURE,
     }
 
     // ------------------------------------------------------------------------------------
@@ -139,32 +163,16 @@ const main = async () => {
     // ------------------------------------------------------------------------------------
 
     const [accountSignature, paymasterSignature] = await Promise.all([
-        // Account signing task
         (async () => {
-            const userOpForAccount = { ...userOp };
-            userOpForAccount.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-                PaymasterData.PAYMASTER_SIG_MAGIC,
-            ]);
-            return await openfortAccount.signUserOperation(userOpForAccount);
+            return await openfortAccount.signUserOperation(userOp);
         })(),
 
-        // Paymaster signing task
         (async () => {
-            const userOpForPaymaster = { ...userOp };
-            userOpForPaymaster.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-            ]);
-
             const paymasterHash = await client.readContract({
                 address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
                 abi: ABI_PAYMASTER_V3,
                 functionName: 'getHash',
-                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
+                args: [1, toPackedUserOperation(userOp)]
             });
 
             return await paymasterSignerAccount.signMessage({
@@ -173,18 +181,21 @@ const main = async () => {
         })()
     ]);
 
-    // Combine both signatures
     userOp = {
         ...userOp,
         signature: accountSignature,
         paymasterData: concat([
-            PaymasterData.MODE,
+            PaymasterData.MODE_ERC20,
+            PaymasterData.COMBINED_BYTE_BASIC,
             PaymasterData.VALID_UNTIL,
             PaymasterData.VALID_AFTER,
-            paymasterSignature,
-            PaymasterData.SIGNATURE_LENGTHS,
-            PaymasterData.PAYMASTER_SIG_MAGIC
-        ])
+            PaymasterData.ERC20_ADDRESS,
+            pad(toHex(PaymasterData.POST_GAS_LIMIT), { size: 16 }),
+            pad(toHex(BigInt(PaymasterData.EXCHANGE_RATE)), { size: 32 }),
+            pad(toHex(PaymasterData.PAYMASTER_VALIDATION_GAS_LIMIT), { size: 16 }),
+            PaymasterData.TREASURY,
+        ]),
+        paymasterSignature: paymasterSignature
     }
 
     // ------------------------------------------------------------------------------------

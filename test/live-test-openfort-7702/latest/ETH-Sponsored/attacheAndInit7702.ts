@@ -1,14 +1,14 @@
-import { createOpenfortAccount } from "./openfort7702"
-import { getAddress } from "../../src/data/addressBook";
+import { optimismSepolia } from "viem/chains";
+import { createOpenfortAccount } from "./../../openfort7702"
+import { getAddress } from "../../../../src/data/addressBook";
 import { encodeAbiParameters, parseAbiParameters } from "viem";
-import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
-import { PaymasterData } from "./openfort7702/paymasterConstants";
+import { PaymasterData } from "./../../openfort7702/paymasterConstants";
 import { http, createClient, publicActions, walletActions } from "viem";
-import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./openfort7702/abis";
+import { ABI_7702_ACCOUNT, ABI_PAYMASTER_V3 } from "./../../openfort7702/abis";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
 import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
 import { concat, encodeFunctionData, Hex, keccak256, toHex, zeroAddress} from "viem";
-import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./openfort7702/interfaces";
+import { IKey, KEY_TYPE, IKeyReg, IPubKey, ISpendLimit } from "./../../openfort7702/interfaces";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
@@ -33,7 +33,7 @@ const paymasterSignerAccount = privateKeyToAccount(process.env.PAYMASTER_SIGNER_
 // Create Client
 const client = createClient({
     account: ownerAccount,
-    chain: OPEN_LOOT_CHAIN,
+    chain: optimismSepolia,
     transport: http()
 })
     .extend(publicActions)
@@ -100,16 +100,14 @@ const main = async () => {
     const paymasterStubData = concat([
         PaymasterData.MODE,
         PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER,
-        PaymasterData.DUMMY_PAYMASTER_SIGNATURE,
-        PaymasterData.SIGNATURE_LENGTHS,
-        PaymasterData.PAYMASTER_SIG_MAGIC,
+        PaymasterData.VALID_AFTER
     ]);
 
     userOp = {
         ...userOp,
         paymaster: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
         paymasterData: paymasterStubData,
+        paymasterSignature: PaymasterData.DUMMY_PAYMASTER_SIGNATURE
     }
 
     // ------------------------------------------------------------------------------------
@@ -141,30 +139,16 @@ const main = async () => {
     const [accountSignature, paymasterSignature] = await Promise.all([
         // Account signing task
         (async () => {
-            const userOpForAccount = { ...userOp };
-            userOpForAccount.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-                PaymasterData.PAYMASTER_SIG_MAGIC,
-            ]);
-            return await openfortAccount.signUserOperation(userOpForAccount);
+            return await openfortAccount.signUserOperation(userOp);
         })(),
 
         // Paymaster signing task
         (async () => {
-            const userOpForPaymaster = { ...userOp };
-            userOpForPaymaster.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-            ]);
-
             const paymasterHash = await client.readContract({
                 address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
                 abi: ABI_PAYMASTER_V3,
                 functionName: 'getHash',
-                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
+                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOp)]
             });
 
             return await paymasterSignerAccount.signMessage({
@@ -173,7 +157,6 @@ const main = async () => {
         })()
     ]);
 
-    // Combine both signatures
     userOp = {
         ...userOp,
         signature: accountSignature,
@@ -181,10 +164,8 @@ const main = async () => {
             PaymasterData.MODE,
             PaymasterData.VALID_UNTIL,
             PaymasterData.VALID_AFTER,
-            paymasterSignature,
-            PaymasterData.SIGNATURE_LENGTHS,
-            PaymasterData.PAYMASTER_SIG_MAGIC
-        ])
+        ]),
+        paymasterSignature: paymasterSignature
     }
 
     // ------------------------------------------------------------------------------------
