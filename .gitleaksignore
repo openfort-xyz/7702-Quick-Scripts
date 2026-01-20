@@ -54,3 +54,12 @@ test/live-test-openfort-7702/latest/ETH-Sponsored/attacheAndInit7702.ts:ethereum
 test/live-test-openfort-7702/latest/ETH-Sponsored/attacheAndInit7702.ts:ethereum-private-key-hex:25
 test/live-test-openfort-7702/latest/ETH-Sponsored/registerKey.ts:ethereum-private-key-hex:206
 test/live-test-openfort-7702/latest/ETH-Sponsored/registerKey.ts:ethereum-private-key-hex:205
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:281
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:280
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:267
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:246
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:245
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:25
+test/live-test-openfort-7702/latest/ERC20-Sponsored/registerKey.ERC20.ts:ethereum-private-key-hex:222
+test/live-test-openfort-7702/latest/ERC20-Sponsored/registerKey.ERC20.ts:ethereum-private-key-hex:221
+test/live-test-openfort-7702/latest/ERC20-Sponsored/attacheAndInit7702.ERC20.ts:ethereum-private-key-hex:268
