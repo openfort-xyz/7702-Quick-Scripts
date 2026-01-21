@@ -1,3 +1,35 @@
+//   Why Would You Use This?
+//   ┌─────────────────┬──────────────────────────────────────────────────────────────────────┐
+//   │    Use Case     │                             Description                              │
+//   ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+//   │ Referral System │ dApp sets itself as recipient - earns from gas overestimation        │
+//   ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+//   │ Protocol Fee    │ Protocol captures excess as service fee                              │
+//   ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+//   │ Gas Arbitrage   │ Third party profits from difference between estimated and actual gas │
+//   ├─────────────────┼──────────────────────────────────────────────────────────────────────┤
+//   │ Donation        │ Excess automatically goes to charity address                         │
+//   └─────────────────┴──────────────────────────────────────────────────────────────────────┘
+//   Important Notes
+
+//   1. User pays the excess - The excess tokens are transferred FROM the user's wallet TO the recipient
+//   2. Only works when preFund > actualCost - If gas estimate was accurate, no excess exists
+//   3. Gas estimation matters - Higher gas limits = more potential excess for recipient
+
+//   Example Scenario
+
+//   Alice uses a dApp that sponsors her transaction with ERC20 paymaster.
+//   The dApp sets itself as recipient.
+
+//   Gas estimated: 500,000 gas units
+//   Gas actually used: 300,000 gas units
+//   Gas price: 0.1 gwei
+
+//   Reserved in tokens: 1.50 USDC
+//   Actual cost: 0.90 USDC
+//   Excess: 0.60 USDC → sent to dApp (recipient)
+
+
 import { optimismSepolia } from "viem/chains";
 import { createOpenfortAccount } from "../../openfort7702"
 import { ABI_PAYMASTER_V3 } from "../../openfort7702/abis";

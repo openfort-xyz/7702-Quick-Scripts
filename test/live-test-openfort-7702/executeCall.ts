@@ -5,7 +5,7 @@ import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
 import { PaymasterData } from "./openfort7702/paymasterConstants";
 import { http, createClient, publicActions, walletActions } from "viem";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
-import { privateKeyToAccount, SignAuthorizationReturnType } from "viem/accounts";
+import { privateKeyToAccount } from "viem/accounts";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
@@ -75,12 +75,12 @@ const main = async () => {
     // ------------------------------------------------------------------------------------
 
     // This is required for Alto bundler to apply state overrides during signature validation
-    const authorization: SignAuthorizationReturnType = await client.signAuthorization(openfortAccount.authorization!);
+    // const authorization: SignAuthorizationReturnType = await client.signAuthorization(openfortAccount.authorization!);
 
     // Get gas price from bundler
     const gasPrice = await client.estimateFeesPerGas()
 
-    let userOp: UserOperation<'0.8'> = {
+    let userOp: UserOperation<'0.9'> = {
         sender: await openfortAccount.getAddress(),
         nonce: await openfortAccount.getNonce(),
         callData: await openfortAccount.encodeCalls(calls),
@@ -90,7 +90,7 @@ const main = async () => {
         maxFeePerGas: gasPrice.maxFeePerGas,
         maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         signature: await openfortAccount.getStubSignature(),
-        authorization,
+        // authorization,
     }
 
     // ------------------------------------------------------------------------------------
@@ -102,16 +102,14 @@ const main = async () => {
     const paymasterStubData = concat([
         PaymasterData.MODE,
         PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER,
-        PaymasterData.DUMMY_PAYMASTER_SIGNATURE,
-        PaymasterData.SIGNATURE_LENGTHS,
-        PaymasterData.PAYMASTER_SIG_MAGIC,
+        PaymasterData.VALID_AFTER
     ]);
 
     userOp = {
         ...userOp,
         paymaster: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
         paymasterData: paymasterStubData,
+        paymasterSignature: PaymasterData.DUMMY_PAYMASTER_SIGNATURE
     }
 
     // ------------------------------------------------------------------------------------
@@ -140,33 +138,36 @@ const main = async () => {
     //
     // ------------------------------------------------------------------------------------
 
+    // ========== DEBUG: Log userOp before signing ==========
+    console.log("========== CLIENT DEBUG: Before signing ==========");
+    console.log("--- userOp fields before signing ---");
+    console.log("paymasterData:", userOp.paymasterData);
+    console.log("paymasterSignature:", userOp.paymasterSignature);
+    console.log("paymasterVerificationGasLimit:", userOp.paymasterVerificationGasLimit);
+    console.log("paymasterPostOpGasLimit:", userOp.paymasterPostOpGasLimit);
+    const clientPackedForHash = toPackedUserOperation(userOp, { forHash: true });
+    const clientPackedForSend = toPackedUserOperation(userOp);
+    console.log("--- Packed for HASH (forHash=true) - WHAT CLIENT SIGNS ---");
+    console.log("paymasterAndData:", clientPackedForHash.paymasterAndData);
+    console.log("length:", clientPackedForHash.paymasterAndData ? clientPackedForHash.paymasterAndData.length : 0);
+    console.log("ends with magic:", clientPackedForHash.paymasterAndData ? clientPackedForHash.paymasterAndData.toLowerCase().endsWith("22e325a297439656") : false);
+    console.log("--- Packed for SENDING (forHash=false) ---");
+    console.log("paymasterAndData:", clientPackedForSend.paymasterAndData);
+    console.log("========== END CLIENT DEBUG ==========");
+
     const [accountSignature, paymasterSignature] = await Promise.all([
         // Account signing task
         (async () => {
-            const userOpForAccount = { ...userOp };
-            userOpForAccount.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-                PaymasterData.PAYMASTER_SIG_MAGIC,
-            ]);
-            return await openfortAccount.signUserOperation(userOpForAccount);
+            return await openfortAccount.signUserOperation(userOp);
         })(),
 
         // Paymaster signing task
         (async () => {
-            const userOpForPaymaster = { ...userOp };
-            userOpForPaymaster.paymasterData = concat([
-                PaymasterData.MODE,
-                PaymasterData.VALID_UNTIL,
-                PaymasterData.VALID_AFTER,
-            ]);
-
             const paymasterHash = await client.readContract({
                 address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
                 abi: ABI_PAYMASTER_V3,
                 functionName: 'getHash',
-                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOpForPaymaster)]
+                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOp)]
             });
 
             return await paymasterSignerAccount.signMessage({
@@ -176,6 +177,18 @@ const main = async () => {
     ]);
 
     // Combine both signatures
+    // userOp = {
+    //     ...userOp,
+    //     signature: accountSignature,
+    //     paymasterData: concat([
+    //         PaymasterData.MODE,
+    //         PaymasterData.VALID_UNTIL,
+    //         PaymasterData.VALID_AFTER,
+    //         paymasterSignature,
+    //         PaymasterData.SIGNATURE_LENGTHS,
+    //         PaymasterData.PAYMASTER_SIG_MAGIC
+    //     ])
+    // }
     userOp = {
         ...userOp,
         signature: accountSignature,
@@ -183,11 +196,27 @@ const main = async () => {
             PaymasterData.MODE,
             PaymasterData.VALID_UNTIL,
             PaymasterData.VALID_AFTER,
-            paymasterSignature,
-            PaymasterData.SIGNATURE_LENGTHS,
-            PaymasterData.PAYMASTER_SIG_MAGIC
-        ])
+        ]),
+        paymasterSignature: paymasterSignature
     }
+
+    // ========== DEBUG: Log userOp AFTER updating with real signatures ==========
+    console.log("\n========== CLIENT DEBUG: After updating signatures ==========");
+    console.log("--- userOp fields being SENT ---");
+    console.log("paymasterData:", userOp.paymasterData);
+    console.log("paymasterSignature:", userOp.paymasterSignature);
+    const finalPackedForHash = toPackedUserOperation(userOp, { forHash: true });
+    console.log("--- Packed for HASH (what bundler should compute) ---");
+    console.log("paymasterAndData:", finalPackedForHash.paymasterAndData);
+    console.log("length:", finalPackedForHash.paymasterAndData ? finalPackedForHash.paymasterAndData.length : 0);
+    console.log("ends with magic:", finalPackedForHash.paymasterAndData ? finalPackedForHash.paymasterAndData.toLowerCase().endsWith("22e325a297439656") : false);
+
+    // CRITICAL CHECK: Compare what client signed vs what will be hashed by bundler
+    console.log("\n--- CRITICAL COMPARISON ---");
+    console.log("Client signed paymasterAndData:", clientPackedForHash.paymasterAndData);
+    console.log("Bundler will hash paymasterAndData:", finalPackedForHash.paymasterAndData);
+    console.log("ARE THEY EQUAL?:", clientPackedForHash.paymasterAndData === finalPackedForHash.paymasterAndData);
+    console.log("========== END CLIENT DEBUG ==========\n");
 
     // ------------------------------------------------------------------------------------
     //
@@ -203,7 +232,7 @@ const main = async () => {
         ],
     });
 
-    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash })
+    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash });
     console.log('UserOperationReceipt:', receipt)
     console.log('Transaction hash:', receipt.receipt.transactionHash)
 }

@@ -87,9 +87,9 @@ class Helpres {
       pad(treasury, { size: 20 })
     ];
 
-    const preFundPresent = (combinedByteValue & 0x04) !== 0;
     const constantFeePresent = (combinedByteValue & 0x01) !== 0;
     const recipientPresent = (combinedByteValue & 0x02) !== 0;
+    const preFundPresent = (combinedByteValue & 0x04) !== 0;
 
     if (preFundPresent) {
       if (preFundInToken === undefined) {
