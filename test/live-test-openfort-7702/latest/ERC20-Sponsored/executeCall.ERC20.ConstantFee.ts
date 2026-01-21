@@ -1,11 +1,11 @@
-import { concat, Hex } from "viem";
-import { createOpenfortAccount } from "./openfort7702"
-import { ABI_PAYMASTER_V3 } from "./openfort7702/abis";
-import { OPEN_LOOT_CHAIN } from "./openfort7702/chainConstatnts";
-import { PaymasterData } from "./openfort7702/paymasterConstants";
-import { http, createClient, publicActions, walletActions } from "viem";
+import { optimismSepolia } from "viem/chains";
+import { createOpenfortAccount } from "../../openfort7702"
+import { ABI_PAYMASTER_V3 } from "../../openfort7702/abis";
+import { PaymasterData } from "../../openfort7702/paymasterConstants";
+import { http, createClient, publicActions, walletActions, pad } from "viem";
 import { createBundlerClient, UserOperation } from "viem/account-abstraction";
 import { privateKeyToAccount } from "viem/accounts";
+import { concat, Hex, toHex } from "viem";
 import { formatUserOperationRequest, formatUserOperationGas, toPackedUserOperation } from "viem/account-abstraction";
 
 import "dotenv/config"
@@ -27,23 +27,25 @@ const paymasterSignerAccount = privateKeyToAccount(process.env.PAYMASTER_SIGNER_
 // Create Client
 const client = createClient({
     account: ownerAccount,
-    chain: OPEN_LOOT_CHAIN,
+    chain: optimismSepolia,
     transport: http()
 })
     .extend(publicActions)
     .extend(walletActions);
 
-// Call for userOp
-const calls = [{
-    to: '0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1' as const,
-    value: 0n,
-    data: "0x" as const,
-}];
+// Call for userOp actual call
+const calls = [
+    {
+        to: '0xA84E4F9D72cb37A8276090D3FC50895BD8E5Aaf1' as Hex,
+        value: 0n,
+        data: "0x" as Hex,
+    }
+];
 
 
 // ------------------------------------------------------------------------------------
 //
-//                                  Register Key
+//                          Execute Call with Constant Fee
 //
 // ------------------------------------------------------------------------------------
 
@@ -74,10 +76,6 @@ const main = async () => {
     //
     // ------------------------------------------------------------------------------------
 
-    // This is required for Alto bundler to apply state overrides during signature validation
-    // const authorization: SignAuthorizationReturnType = await client.signAuthorization(openfortAccount.authorization!);
-
-    // Get gas price from bundler
     const gasPrice = await client.estimateFeesPerGas()
 
     let userOp: UserOperation<'0.9'> = {
@@ -90,26 +88,45 @@ const main = async () => {
         maxFeePerGas: gasPrice.maxFeePerGas,
         maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
         signature: await openfortAccount.getStubSignature(),
-        // authorization,
     }
 
     // ------------------------------------------------------------------------------------
     //
-    //                           Create Paymaster Stub Data
+    //                    Create Paymaster Stub Data with Constant Fee
     //
     // ------------------------------------------------------------------------------------
 
+    // Structure for ERC20 mode with constantFee (combinedByte = 0x01):
+    // - MODE_ERC20 (1 byte)
+    // - COMBINED_BYTE_CONSTANT_FEE (1 byte) - 0x01
+    // - validUntil (6 bytes)
+    // - validAfter (6 bytes)
+    // - token (20 bytes)
+    // - postOpGas (16 bytes)
+    // - exchangeRate (32 bytes)
+    // - paymasterValidationGasLimit (16 bytes)
+    // - treasury (20 bytes)
+    // - constantFee (16 bytes) - ADDED for constantFeePresent
+    // - signature (65 bytes) + async suffix
+
     const paymasterStubData = concat([
-        PaymasterData.MODE,
+        PaymasterData.MODE_ERC20,
+        PaymasterData.COMBINED_BYTE_CONSTANT_FEE,  // 0x01 - constantFeePresent
         PaymasterData.VALID_UNTIL,
-        PaymasterData.VALID_AFTER
+        PaymasterData.VALID_AFTER,
+        PaymasterData.ERC20_ADDRESS,
+        pad(toHex(PaymasterData.POST_GAS_LIMIT), { size: 16 }),
+        pad(toHex(BigInt(PaymasterData.EXCHANGE_RATE)), { size: 32 }),
+        pad(toHex(PaymasterData.PAYMASTER_VALIDATION_GAS_LIMIT), { size: 16 }),
+        PaymasterData.TREASURY,
+        pad(toHex(PaymasterData.CONSTANT_FEE), { size: 16 }),  // constantFee field
     ]);
 
     userOp = {
         ...userOp,
         paymaster: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
         paymasterData: paymasterStubData,
-        paymasterSignature: PaymasterData.DUMMY_PAYMASTER_SIGNATURE
+        paymasterSignature: PaymasterData.DUMMY_PAYMASTER_SIGNATURE,
     }
 
     // ------------------------------------------------------------------------------------
@@ -134,40 +151,22 @@ const main = async () => {
 
     // ------------------------------------------------------------------------------------
     //
-    //                    Sign UserOp and Paymaster in Parallel
+    //                    Sign UserOp and Paymaster in Parallel (Async)
     //
     // ------------------------------------------------------------------------------------
 
-    // ========== DEBUG: Log userOp before signing ==========
-    console.log("========== CLIENT DEBUG: Before signing ==========");
-    console.log("--- userOp fields before signing ---");
-    console.log("paymasterData:", userOp.paymasterData);
-    console.log("paymasterSignature:", userOp.paymasterSignature);
-    console.log("paymasterVerificationGasLimit:", userOp.paymasterVerificationGasLimit);
-    console.log("paymasterPostOpGasLimit:", userOp.paymasterPostOpGasLimit);
-    const clientPackedForHash = toPackedUserOperation(userOp, { forHash: true });
-    const clientPackedForSend = toPackedUserOperation(userOp);
-    console.log("--- Packed for HASH (forHash=true) - WHAT CLIENT SIGNS ---");
-    console.log("paymasterAndData:", clientPackedForHash.paymasterAndData);
-    console.log("length:", clientPackedForHash.paymasterAndData ? clientPackedForHash.paymasterAndData.length : 0);
-    console.log("ends with magic:", clientPackedForHash.paymasterAndData ? clientPackedForHash.paymasterAndData.toLowerCase().endsWith("22e325a297439656") : false);
-    console.log("--- Packed for SENDING (forHash=false) ---");
-    console.log("paymasterAndData:", clientPackedForSend.paymasterAndData);
-    console.log("========== END CLIENT DEBUG ==========");
-
     const [accountSignature, paymasterSignature] = await Promise.all([
-        // Account signing task
         (async () => {
             return await openfortAccount.signUserOperation(userOp);
         })(),
 
-        // Paymaster signing task
         (async () => {
+            // Mode 1 = ERC20_MODE for getHash
             const paymasterHash = await client.readContract({
                 address: PaymasterData.PAYMASTER_ADDRESS_V9_ASYNC,
                 abi: ABI_PAYMASTER_V3,
                 functionName: 'getHash',
-                args: [Number(PaymasterData.VERIFYING_MODE), toPackedUserOperation(userOp)]
+                args: [1, toPackedUserOperation(userOp)]
             });
 
             return await paymasterSignerAccount.signMessage({
@@ -176,47 +175,23 @@ const main = async () => {
         })()
     ]);
 
-    // Combine both signatures
-    // userOp = {
-    //     ...userOp,
-    //     signature: accountSignature,
-    //     paymasterData: concat([
-    //         PaymasterData.MODE,
-    //         PaymasterData.VALID_UNTIL,
-    //         PaymasterData.VALID_AFTER,
-    //         paymasterSignature,
-    //         PaymasterData.SIGNATURE_LENGTHS,
-    //         PaymasterData.PAYMASTER_SIG_MAGIC
-    //     ])
-    // }
     userOp = {
         ...userOp,
         signature: accountSignature,
         paymasterData: concat([
-            PaymasterData.MODE,
+            PaymasterData.MODE_ERC20,
+            PaymasterData.COMBINED_BYTE_CONSTANT_FEE,  // 0x01 - constantFeePresent
             PaymasterData.VALID_UNTIL,
             PaymasterData.VALID_AFTER,
+            PaymasterData.ERC20_ADDRESS,
+            pad(toHex(PaymasterData.POST_GAS_LIMIT), { size: 16 }),
+            pad(toHex(BigInt(PaymasterData.EXCHANGE_RATE)), { size: 32 }),
+            pad(toHex(PaymasterData.PAYMASTER_VALIDATION_GAS_LIMIT), { size: 16 }),
+            PaymasterData.TREASURY,
+            pad(toHex(PaymasterData.CONSTANT_FEE), { size: 16 }),  // constantFee field
         ]),
         paymasterSignature: paymasterSignature
     }
-
-    // ========== DEBUG: Log userOp AFTER updating with real signatures ==========
-    console.log("\n========== CLIENT DEBUG: After updating signatures ==========");
-    console.log("--- userOp fields being SENT ---");
-    console.log("paymasterData:", userOp.paymasterData);
-    console.log("paymasterSignature:", userOp.paymasterSignature);
-    const finalPackedForHash = toPackedUserOperation(userOp, { forHash: true });
-    console.log("--- Packed for HASH (what bundler should compute) ---");
-    console.log("paymasterAndData:", finalPackedForHash.paymasterAndData);
-    console.log("length:", finalPackedForHash.paymasterAndData ? finalPackedForHash.paymasterAndData.length : 0);
-    console.log("ends with magic:", finalPackedForHash.paymasterAndData ? finalPackedForHash.paymasterAndData.toLowerCase().endsWith("22e325a297439656") : false);
-
-    // CRITICAL CHECK: Compare what client signed vs what will be hashed by bundler
-    console.log("\n--- CRITICAL COMPARISON ---");
-    console.log("Client signed paymasterAndData:", clientPackedForHash.paymasterAndData);
-    console.log("Bundler will hash paymasterAndData:", finalPackedForHash.paymasterAndData);
-    console.log("ARE THEY EQUAL?:", clientPackedForHash.paymasterAndData === finalPackedForHash.paymasterAndData);
-    console.log("========== END CLIENT DEBUG ==========\n");
 
     // ------------------------------------------------------------------------------------
     //
@@ -235,6 +210,7 @@ const main = async () => {
     const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: finalUserOpHash });
     console.log('UserOperationReceipt:', receipt)
     console.log('Transaction hash:', receipt.receipt.transactionHash)
+    console.log('Constant fee applied:', PaymasterData.CONSTANT_FEE.toString(), 'token units')
 }
 
 
